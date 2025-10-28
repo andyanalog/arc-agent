@@ -1,5 +1,6 @@
 ArcAgent Project Structure
 
+```
 arcagent/
 ├── docker-compose.yml
 ├── README.md
@@ -47,6 +48,7 @@ arcagent/
 │
 └── web/                        # NextJS PIN setup portal (Phase 2)
     └── (to be created later)
+```
 
 Key Components
 1. FastAPI Backend (main.py)
