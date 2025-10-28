@@ -124,6 +124,7 @@ https://your-domain.com/webhooks/twilio/incoming
 User Flow
 Registration Flow
 
+```
 User sends: Hi or Register
 Bot sends 6-digit verification code
 User verifies code (auto-detected or via /api/verify-code)
@@ -131,12 +132,15 @@ Bot sends PIN setup link
 User sets PIN via secure web portal
 Bot creates Circle wallet
 Bot sends welcome message
+```
 
 Payment Flow
 
+```
 User sends: Send $20 to Alice
 Bot parses intent and checks balance
 Bot requests confirmation: CONFIRM or CANCEL
 User replies: CONFIRM
 Bot executes transfer via Circle/Arc
 Bot sends transaction receipt
+```
