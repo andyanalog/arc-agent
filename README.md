@@ -1,6 +1,5 @@
 ArcAgent Project Structure
 
-```
 arcagent/
 ├── docker-compose.yml
 ├── README.md
@@ -48,31 +47,26 @@ arcagent/
 │
 └── web/                        # NextJS PIN setup portal (Phase 2)
     └── (to be created later)
-```
 
 Key Components
 1. FastAPI Backend (main.py)
-```
+
 Webhook endpoints for Twilio
 Health checks
 Integration with Temporal
-```
 
 2. Temporal Workflows
-```
+
 RegistrationWorkflow: Handle user signup flow
 PaymentWorkflow: Execute transfers
 VerificationWorkflow: PIN setup and validation
-```
 
 3. Activities
-```
+
 Atomic operations for Twilio, database, Circle, Arc
 Each activity is idempotent and retryable
-```
 
 4. Message Flow
-```
 User (WhatsApp) 
     ↓
 Twilio 
@@ -84,7 +78,7 @@ Temporal Workflow
 Activities (Twilio/DB/Circle/Arc) 
     ↓
 Response to User
-```
+
 ----------------------------------------------
 
 # First of all, create a Twilio account. Then follow the next steps.
@@ -128,7 +122,6 @@ https://your-domain.com/webhooks/twilio/incoming
 User Flow
 Registration Flow
 
-```
 User sends: Hi or Register
 Bot sends 6-digit verification code
 User verifies code (auto-detected or via /api/verify-code)
@@ -136,15 +129,12 @@ Bot sends PIN setup link
 User sets PIN via secure web portal
 Bot creates Circle wallet
 Bot sends welcome message
-```
 
 Payment Flow
 
-```
 User sends: Send $20 to Alice
 Bot parses intent and checks balance
 Bot requests confirmation: CONFIRM or CANCEL
 User replies: CONFIRM
 Bot executes transfer via Circle/Arc
 Bot sends transaction receipt
-```
