@@ -52,23 +52,27 @@ arcagent/
 
 Key Components
 1. FastAPI Backend (main.py)
-
+```
 Webhook endpoints for Twilio
 Health checks
 Integration with Temporal
+```
 
 2. Temporal Workflows
-
+```
 RegistrationWorkflow: Handle user signup flow
 PaymentWorkflow: Execute transfers
 VerificationWorkflow: PIN setup and validation
+```
 
 3. Activities
-
+```
 Atomic operations for Twilio, database, Circle, Arc
 Each activity is idempotent and retryable
+```
 
 4. Message Flow
+```
 User (WhatsApp) 
     ↓
 Twilio 
@@ -80,7 +84,7 @@ Temporal Workflow
 Activities (Twilio/DB/Circle/Arc) 
     ↓
 Response to User
-
+```
 ----------------------------------------------
 
 # First of all, create a Twilio account. Then follow the next steps.
