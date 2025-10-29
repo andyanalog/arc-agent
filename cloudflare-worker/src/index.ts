@@ -127,9 +127,8 @@ app.post('/webhook/whatsapp', async (c) => {
 			messageSid,
 		});
 
-		// Get or create conversation history from KV storage (optional)
-		// For simplicity, we'll start fresh each time
-		const messages = [
+		// Build conversation messages
+		const messages: any[] = [
 			{
 				role: 'system',
 				content: `You are ArcAgent, a conversational AI financial assistant for USDC payments on WhatsApp.
@@ -271,64 +270,74 @@ Current user phone: ${phoneNumber}`,
 			tools,
 		});
 
-		// Process tool calls
+		// Process tool calls iteratively
 		let iterationCount = 0;
 		const maxIterations = 5;
-		let shouldContinue = true;
 
-		while (result.tool_calls !== undefined && result.tool_calls.length > 0 && iterationCount < maxIterations && shouldContinue) {
+		while (result.tool_calls && result.tool_calls.length > 0 && iterationCount < maxIterations) {
 			iterationCount++;
 
+			// Process all tool calls in this iteration
 			for (const toolCall of result.tool_calls) {
 				let fnResponse;
 
-				switch (toolCall.name) {
-					case 'registerUser':
-						fnResponse = await registerUser(c.env, phoneNumber);
-						break;
+				try {
+					switch (toolCall.name) {
+						case 'registerUser':
+							fnResponse = await registerUser(c.env, phoneNumber);
+							break;
 
-					case 'verifyCode':
-						fnResponse = await verifyCode(
-							c.env,
-							phoneNumber,
-							toolCall.arguments.workflowId,
-							toolCall.arguments.code
-						);
-						break;
+						case 'verifyCode':
+							fnResponse = await verifyCode(
+								c.env,
+								phoneNumber,
+								(toolCall.arguments as any).workflowId,
+								(toolCall.arguments as any).code
+							);
+							break;
 
-					case 'sendMoney':
-						fnResponse = await sendMoney(
-							c.env,
-							phoneNumber,
-							toolCall.arguments.amount,
-							toolCall.arguments.recipient
-						);
-						break;
+						case 'sendMoney':
+							fnResponse = await sendMoney(
+								c.env,
+								phoneNumber,
+								(toolCall.arguments as any).amount,
+								(toolCall.arguments as any).recipient
+							);
+							break;
 
-					case 'checkBalance':
-						fnResponse = await checkBalance(c.env, phoneNumber);
-						break;
+						case 'checkBalance':
+							fnResponse = await checkBalance(c.env, phoneNumber);
+							break;
 
-					case 'getTransactionHistory':
-						fnResponse = await getTransactionHistory(
-							c.env,
-							phoneNumber,
-							toolCall.arguments.limit || 10
-						);
-						break;
+						case 'getTransactionHistory':
+							fnResponse = await getTransactionHistory(
+								c.env,
+								phoneNumber,
+								(toolCall.arguments as any).limit || 10
+							);
+							break;
 
-					case 'confirmAction':
-						fnResponse = await confirmAction(c.env, phoneNumber, toolCall.arguments.workflowId);
-						break;
+						case 'confirmAction':
+							fnResponse = await confirmAction(c.env, phoneNumber, (toolCall.arguments as any).workflowId);
+							break;
 
-					case 'cancelAction':
-						fnResponse = await cancelAction(c.env, phoneNumber, toolCall.arguments.workflowId);
-						break;
+						case 'cancelAction':
+							fnResponse = await cancelAction(c.env, phoneNumber, (toolCall.arguments as any).workflowId);
+							break;
 
-					default:
-						fnResponse = { error: `Unknown tool: ${toolCall.name}` };
-						break;
+						default:
+							fnResponse = { error: `Unknown tool: ${toolCall.name}` };
+							break;
+					}
+				} catch (error) {
+					fnResponse = { error: `Tool execution failed: ${error}` };
 				}
+
+				console.log({
+					tool: toolCall.name,
+					arguments: toolCall.arguments,
+					response: fnResponse,
+				});
 
 				// Add tool response to messages
 				messages.push({
@@ -336,49 +345,17 @@ Current user phone: ${phoneNumber}`,
 					name: toolCall.name,
 					content: JSON.stringify(fnResponse),
 				});
-
-				console.log({
-					tool: toolCall.name,
-					response: fnResponse,
-				});
-
-				// Only continue if there was an error, stop on success
-				if (fnResponse.success === true || !fnResponse.error) {
-					shouldContinue = false;
-					break;
-				}
 			}
 
-			// Get next AI response only if we should continue
-			if (shouldContinue) {
-				result = await c.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
-					messages,
-					tools,
-				});
-
-				if (result.response !== null) {
-					messages.push({
-						role: 'assistant',
-						content: result.response,
-					});
-				}
-			}
+			// Get next AI response with tool results
+			result = await c.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+				messages,
+				tools,
+			});
 		}
 
 		// Get final assistant message
-		const finalMessage = messages[messages.length - 1];
-		let responseText = '';
-
-		if (finalMessage.role === 'assistant') {
-			responseText = finalMessage.content;
-		} else if (result.response) {
-			responseText = result.response;
-		} else {
-			// Don't send another message - the tool already sent one
-			return c.text('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200, {
-				'Content-Type': 'text/xml',
-			});
-		}
+		let responseText = result.response || 'I encountered an issue processing your request.';
 
 		// Send response back to user via Twilio
 		await fetch(`${c.env.BACKEND_API_URL}/api/send-message`, {

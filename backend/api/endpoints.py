@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends, Header
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, HTMLResponse
+from pathlib import Path
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from temporalio.client import Client
@@ -42,6 +43,12 @@ class VerifyCodeRequest(BaseModel):
     phone_number: str
     workflow_id: str
     code: str
+    
+class SetPinRequest(BaseModel):
+    phone_number: str
+    workflow_id: str
+    pin_hash: str
+    token: str    
 
 class SendMoneyRequest(BaseModel):
     phone_number: str
@@ -147,6 +154,37 @@ async def verify_code_workflow(
             "error": str(e),
             "message": "Failed to verify code.",
         }
+        
+@app.post("/api/workflow/set-pin")
+async def set_pin_workflow(
+    request: SetPinRequest,
+    api_key: str = Depends(verify_api_key)
+):
+    """Send PIN setup signal to registration workflow"""
+    try:
+        client = await get_temporal_client()
+        handle = client.get_workflow_handle(request.workflow_id)
+        
+        # Send set_pin signal to workflow
+        await handle.signal("set_pin", {
+            "pin_hash": request.pin_hash,
+            "token": request.token
+        })
+        
+        logger.info(f"PIN setup signal sent for {request.phone_number}")
+        
+        return {
+            "success": True,
+            "message": "PIN set successfully",
+        }
+        
+    except Exception as e:
+        logger.error(f"PIN setup error: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to set PIN.",
+        }        
         
 @app.post("/api/payment/send")
 async def send_money(
@@ -388,6 +426,12 @@ async def send_message(
             "error": str(e),
         }
 
+
+@app.get("/setup-pin", response_class=HTMLResponse)
+async def serve_pin_setup():
+    """Serve PIN setup page"""
+    html_file = Path(__file__).parent.parent / "pin-setup.html"
+    return html_file.read_text()
 
 @app.get("/health")
 async def health_check():

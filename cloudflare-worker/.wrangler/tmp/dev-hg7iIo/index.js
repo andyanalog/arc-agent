@@ -25,9 +25,9 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
-// .wrangler/tmp/bundle-5DBKVx/checked-fetch.js
+// .wrangler/tmp/bundle-poOLXF/checked-fetch.js
 var require_checked_fetch = __commonJS({
-  ".wrangler/tmp/bundle-5DBKVx/checked-fetch.js"() {
+  ".wrangler/tmp/bundle-poOLXF/checked-fetch.js"() {
     "use strict";
     var urls = /* @__PURE__ */ new Set();
     function checkURL(request, init) {
@@ -56,13 +56,13 @@ var require_checked_fetch = __commonJS({
   }
 });
 
-// .wrangler/tmp/bundle-5DBKVx/middleware-loader.entry.ts
+// .wrangler/tmp/bundle-poOLXF/middleware-loader.entry.ts
 var import_checked_fetch32 = __toESM(require_checked_fetch());
 
 // wrangler-modules-watch:wrangler:modules-watch
 var import_checked_fetch = __toESM(require_checked_fetch());
 
-// .wrangler/tmp/bundle-5DBKVx/middleware-insertion-facade.js
+// .wrangler/tmp/bundle-poOLXF/middleware-insertion-facade.js
 var import_checked_fetch30 = __toESM(require_checked_fetch());
 
 // src/index.ts
@@ -1992,89 +1992,71 @@ Current user phone: ${phoneNumber}`
     });
     let iterationCount = 0;
     const maxIterations = 5;
-    let shouldContinue = true;
-    while (result.tool_calls !== void 0 && result.tool_calls.length > 0 && iterationCount < maxIterations && shouldContinue) {
+    while (result.tool_calls && result.tool_calls.length > 0 && iterationCount < maxIterations) {
       iterationCount++;
       for (const toolCall of result.tool_calls) {
         let fnResponse;
-        switch (toolCall.name) {
-          case "registerUser":
-            fnResponse = await registerUser(c.env, phoneNumber);
-            break;
-          case "verifyCode":
-            fnResponse = await verifyCode(
-              c.env,
-              phoneNumber,
-              toolCall.arguments.workflowId,
-              toolCall.arguments.code
-            );
-            break;
-          case "sendMoney":
-            fnResponse = await sendMoney(
-              c.env,
-              phoneNumber,
-              toolCall.arguments.amount,
-              toolCall.arguments.recipient
-            );
-            break;
-          case "checkBalance":
-            fnResponse = await checkBalance(c.env, phoneNumber);
-            break;
-          case "getTransactionHistory":
-            fnResponse = await getTransactionHistory(
-              c.env,
-              phoneNumber,
-              toolCall.arguments.limit || 10
-            );
-            break;
-          case "confirmAction":
-            fnResponse = await confirmAction(c.env, phoneNumber, toolCall.arguments.workflowId);
-            break;
-          case "cancelAction":
-            fnResponse = await cancelAction(c.env, phoneNumber, toolCall.arguments.workflowId);
-            break;
-          default:
-            fnResponse = { error: `Unknown tool: ${toolCall.name}` };
-            break;
+        try {
+          switch (toolCall.name) {
+            case "registerUser":
+              fnResponse = await registerUser(c.env, phoneNumber);
+              break;
+            case "verifyCode":
+              fnResponse = await verifyCode(
+                c.env,
+                phoneNumber,
+                toolCall.arguments.workflowId,
+                toolCall.arguments.code
+              );
+              break;
+            case "sendMoney":
+              fnResponse = await sendMoney(
+                c.env,
+                phoneNumber,
+                toolCall.arguments.amount,
+                toolCall.arguments.recipient
+              );
+              break;
+            case "checkBalance":
+              fnResponse = await checkBalance(c.env, phoneNumber);
+              break;
+            case "getTransactionHistory":
+              fnResponse = await getTransactionHistory(
+                c.env,
+                phoneNumber,
+                toolCall.arguments.limit || 10
+              );
+              break;
+            case "confirmAction":
+              fnResponse = await confirmAction(c.env, phoneNumber, toolCall.arguments.workflowId);
+              break;
+            case "cancelAction":
+              fnResponse = await cancelAction(c.env, phoneNumber, toolCall.arguments.workflowId);
+              break;
+            default:
+              fnResponse = { error: `Unknown tool: ${toolCall.name}` };
+              break;
+          }
+        } catch (error) {
+          fnResponse = { error: `Tool execution failed: ${error}` };
         }
+        console.log({
+          tool: toolCall.name,
+          arguments: toolCall.arguments,
+          response: fnResponse
+        });
         messages.push({
           role: "tool",
           name: toolCall.name,
           content: JSON.stringify(fnResponse)
         });
-        console.log({
-          tool: toolCall.name,
-          response: fnResponse
-        });
-        if (fnResponse.success === true || !fnResponse.error) {
-          shouldContinue = false;
-          break;
-        }
       }
-      if (shouldContinue) {
-        result = await c.env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
-          messages,
-          tools
-        });
-        if (result.response !== null) {
-          messages.push({
-            role: "assistant",
-            content: result.response
-          });
-        }
-      }
-    }
-    const finalMessage = messages[messages.length - 1];
-    let responseText = "";
-    if (finalMessage.role === "assistant") {
-      responseText = finalMessage.content;
-    } else if (result.response) {
-      responseText = result.response;
-    } else {
-      return c.text('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200, {
-        "Content-Type": "text/xml"
+      result = await c.env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
+        messages,
+        tools
       });
     }
+    let responseText = result.response || "I encountered an issue processing your request.";
     await fetch(`${c.env.BACKEND_API_URL}/api/send-message`, {
       method: "POST",
       headers: {
@@ -2144,7 +2126,7 @@ var jsonError = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx)
 }, "jsonError");
 var middleware_miniflare3_json_error_default = jsonError;
 
-// .wrangler/tmp/bundle-5DBKVx/middleware-insertion-facade.js
+// .wrangler/tmp/bundle-poOLXF/middleware-insertion-facade.js
 var __INTERNAL_WRANGLER_MIDDLEWARE__ = [
   middleware_ensure_req_body_drained_default,
   middleware_miniflare3_json_error_default
@@ -2177,7 +2159,7 @@ function __facade_invoke__(request, env, ctx, dispatch, finalMiddleware) {
 }
 __name(__facade_invoke__, "__facade_invoke__");
 
-// .wrangler/tmp/bundle-5DBKVx/middleware-loader.entry.ts
+// .wrangler/tmp/bundle-poOLXF/middleware-loader.entry.ts
 var __Facade_ScheduledController__ = class ___Facade_ScheduledController__ {
   constructor(scheduledTime, cron, noRetry) {
     this.scheduledTime = scheduledTime;
