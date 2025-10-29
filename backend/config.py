@@ -14,11 +14,12 @@ class Settings(BaseSettings):
     # Twilio
     TWILIO_ACCOUNT_SID: str
     TWILIO_AUTH_TOKEN: str
-    TWILIO_WHATSAPP_NUMBER: str = "whatsapp:+14155233456"
+    TWILIO_WHATSAPP_NUMBER: str = "whatsapp:+14155238886"
     
     # Security
     PIN_SALT: str = "arcagent-dev-salt-change-in-production"
     SESSION_SECRET: str = "dev-secret-key-change-in-production"
+    BACKEND_API_KEY: str = "dev-api-key-change-in-production"  # Cloudflare Worker auth
     
     # Circle
     CIRCLE_API_KEY: str = "dummy-circle-api-key"
@@ -27,6 +28,9 @@ class Settings(BaseSettings):
     # Arc
     ARC_RPC_URL: str = "https://arc-testnet-rpc.example.com"
     ARC_CHAIN_ID: int = 12345
+    
+    # Cloudflare Worker
+    CLOUDFLARE_WORKER_URL: str = "https://arcagent-ai-worker.your-subdomain.workers.dev"
     
     # Environment
     ENVIRONMENT: str = "development"

@@ -26,9 +26,19 @@ async def create_user(phone_number: str) -> Dict[str, Any]:
         existing_user = db.query(User).filter(User.whatsapp_number == phone_number).first()
         if existing_user:
             logger.info(f"User already exists: {phone_number}")
+            # Generate new verification code for existing incomplete registrations
+            if not existing_user.registration_completed:
+                verification_code = ''.join([str(secrets.randbelow(10)) for _ in range(6)])
+                existing_user.verification_code = verification_code
+                existing_user.verification_code_expires = datetime.utcnow() + timedelta(minutes=10)
+                db.commit()
+            else:
+                verification_code = None
+            
             return {
                 "id": existing_user.id,
                 "phone_number": existing_user.whatsapp_number,
+                "verification_code": verification_code,
                 "is_verified": existing_user.is_verified,
                 "registration_completed": existing_user.registration_completed
             }
