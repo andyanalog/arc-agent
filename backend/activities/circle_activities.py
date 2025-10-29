@@ -3,8 +3,28 @@ from typing import Dict, Any
 import logging
 import uuid
 import random
+import requests
+import asyncio
+
+from backend.config import settings
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+BASE_URL = "https://api.circle.com/v1/w3s"
+
+
+def _auth_headers() -> dict:
+    return {
+        "Authorization": f"Bearer {settings.CIRCLE_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+
+def _idem() -> str:
+    return str(uuid.uuid4())
+
+
 
 
 # DUMMY IMPLEMENTATIONS - Will be replaced with actual Circle API calls
@@ -13,50 +33,64 @@ logger = logging.getLogger(__name__)
 @activity.defn
 async def create_circle_wallet(user_id: str) -> Dict[str, str]:
     """
-    Create Circle wallet for user (DUMMY)
-    
-    Args:
-        user_id: User identifier
-    
-    Returns:
-        Dict with wallet_id and wallet_address
+    Create a developer-controlled wallet for a given user via Circle API.
     """
-    logger.info(f"[DUMMY] Creating Circle wallet for user: {user_id}")
-    
-    # Simulate API call delay
-    import asyncio
-    await asyncio.sleep(0.5)
-    
-    # Generate dummy wallet data
-    wallet_id = f"wallet_{uuid.uuid4().hex[:16]}"
-    wallet_address = f"0x{uuid.uuid4().hex[:40]}"
-    
-    logger.info(f"[DUMMY] Created wallet: {wallet_id}, address: {wallet_address}")
-    
-    return {
-        "wallet_id": wallet_id,
-        "wallet_address": wallet_address
+    logger.info(f"Creating Circle wallet for user {user_id}")
+    await asyncio.sleep(0)  # yield control to Temporal worker
+
+    # Step 1: ensure wallet set exists (could store/reuse)
+    wallet_set_body = {"name": f"ArcAgent_Set_{user_id}"}
+    ws_resp = requests.post(
+        f"{BASE_URL}/developer/walletSets", headers=_auth_headers(), json=wallet_set_body
+    )
+    ws_data = ws_resp.json()
+    if ws_resp.status_code >= 300:
+        raise RuntimeError(f"Wallet set creation failed: {ws_data}")
+
+    wallet_set_id = ws_data.get("data", {}).get("id")
+    logger.info(f"Created wallet set: {wallet_set_id}")
+
+    # Step 2: create wallet inside that set
+    wallet_body = {
+        "idempotencyKey": _idem(),
+        "walletSetId": wallet_set_id,
+        "blockchains": ["MATIC-AMOY"],
+        "count": 1,
+        "accountType": "SCA",
     }
 
+    w_resp = requests.post(
+        f"{BASE_URL}/developer/wallets", headers=_auth_headers(), json=wallet_body
+    )
+    w_data = w_resp.json()
+    if w_resp.status_code >= 300:
+        raise RuntimeError(f"Wallet creation failed: {w_data}")
+
+    wallet = w_data["data"]["wallets"][0]
+    logger.info(f"Wallet created for user {user_id}: {wallet['id']}")
+
+    return {
+        "wallet_id": wallet["id"],
+        "wallet_address": wallet["address"],
+    }
 
 @activity.defn
 async def get_wallet_balance(wallet_id: str) -> float:
-    """
-    Get wallet USDC balance (DUMMY)
-    
-    Args:
-        wallet_id: Circle wallet ID
-    
-    Returns:
-        Balance in USDC
-    """
-    logger.info(f"[DUMMY] Getting balance for wallet: {wallet_id}")
-    
-    # Return random balance for testing
-    balance = round(random.uniform(10, 500), 2)
-    
-    logger.info(f"[DUMMY] Wallet {wallet_id} balance: ${balance}")
-    return balance
+    logger.info(f"Getting balance for wallet {wallet_id}")
+    await asyncio.sleep(0)
+
+    url = f"{BASE_URL}/developer/wallets/{wallet_id}"
+    resp = requests.get(url, headers=_auth_headers())
+    data = resp.json()
+    if resp.status_code >= 300:
+        raise RuntimeError(f"Failed to fetch wallet: {data}")
+
+    balances = data.get("data", {}).get("balances", [])
+    usdc = next((b for b in balances if b["token"]["symbol"] == "USDC"), None)
+    amount = float(usdc["amount"]) if usdc else 0.0
+
+    logger.info(f"Wallet {wallet_id} USDC balance: {amount}")
+    return amount
 
 
 @activity.defn
@@ -67,30 +101,30 @@ async def initiate_transfer(
 ) -> Dict[str, Any]:
     """
     Initiate USDC transfer via Circle (DUMMY)
-    
-    Args:
-        from_wallet_id: Source wallet ID
-        to_address: Destination wallet address
-        amount: Amount in USDC
-    
-    Returns:
-        Dict with transfer_id and status
     """
-    logger.info(f"[DUMMY] Initiating transfer from {from_wallet_id} to {to_address}: ${amount}")
     
-    # Simulate API call
-    import asyncio
-    await asyncio.sleep(1)
-    
-    transfer_id = f"transfer_{uuid.uuid4().hex[:16]}"
-    
-    logger.info(f"[DUMMY] Transfer initiated: {transfer_id}")
-    
-    return {
-        "transfer_id": transfer_id,
-        "status": "pending"
+    logger.info(f"Initiating transfer from {from_wallet_id} → {to_address}: {amount} USDC")
+    await asyncio.sleep(0)
+
+    body = {
+        "idempotencyKey": _idem(),
+        "source": {"walletId": from_wallet_id},
+        "destination": {"address": to_address},
+        "amount": {"amount": str(amount), "tokenId": "USDC-MATIC-AMOY"},
     }
 
+    resp = requests.post(
+        f"{BASE_URL}/developer/transactions/transfers", headers=_auth_headers(), json=body
+    )
+    data = resp.json()
+    if resp.status_code >= 300:
+        raise RuntimeError(f"Transfer failed: {data}")
+
+    logger.info(f"Transfer initiated: {data}")
+    return {
+        "transfer_id": data.get("data", {}).get("id"),
+        "status": data.get("data", {}).get("state", "pending"),
+    }
 
 @activity.defn
 async def check_transfer_status(transfer_id: str) -> Dict[str, Any]:
@@ -103,15 +137,18 @@ async def check_transfer_status(transfer_id: str) -> Dict[str, Any]:
     Returns:
         Dict with status and tx_hash
     """
-    logger.info(f"[DUMMY] Checking transfer status: {transfer_id}")
-    
-    # Simulate successful transfer
-    tx_hash = f"0x{uuid.uuid4().hex}"
-    
+    logger.info(f"Checking transfer status for {transfer_id}")
+    await asyncio.sleep(0)
+
+    resp = requests.get(f"{BASE_URL}/developer/transactions/{transfer_id}", headers=_auth_headers())
+    data = resp.json()
+    if resp.status_code >= 300:
+        raise RuntimeError(f"Failed to check transfer: {data}")
+
     return {
         "transfer_id": transfer_id,
-        "status": "confirmed",
-        "tx_hash": tx_hash
+        "status": data.get("data", {}).get("state", "unknown"),
+        "tx_hash": data.get("data", {}).get("transactionHash"),
     }
 
 

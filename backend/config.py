@@ -4,29 +4,29 @@ from functools import lru_cache
 
 class Settings(BaseSettings):
     # Database
-    DATABASE_URL: str = "postgresql://arcagent:arcagent_dev_password@localhost:5432/arcagent"
+    DATABASE_URL: str
     
     # Temporal
-    TEMPORAL_HOST: str = "localhost:7233"
-    TEMPORAL_NAMESPACE: str = "default"
-    TEMPORAL_TASK_QUEUE: str = "arcagent-task-queue"
+    TEMPORAL_HOST: str
+    TEMPORAL_NAMESPACE: str
+    TEMPORAL_TASK_QUEUE: str
     
     # Twilio
     TWILIO_ACCOUNT_SID: str
     TWILIO_AUTH_TOKEN: str
-    TWILIO_WHATSAPP_NUMBER: str = "whatsapp:+14155233456"
+    TWILIO_WHATSAPP_NUMBER: str
     
     # Security
-    PIN_SALT: str = "arcagent-dev-salt-change-in-production"
-    SESSION_SECRET: str = "dev-secret-key-change-in-production"
+    PIN_SALT: str 
+    SESSION_SECRET: str
     
     # Circle
-    CIRCLE_API_KEY: str = "dummy-circle-api-key"
-    CIRCLE_ENTITY_SECRET: str = "dummy-entity-secret"
+    CIRCLE_API_KEY: str 
+    CIRCLE_ENTITY_SECRET: str
     
     # Arc
-    ARC_RPC_URL: str = "https://arc-testnet-rpc.example.com"
-    ARC_CHAIN_ID: int = 12345
+    ARC_RPC_URL: str 
+    ARC_CHAIN_ID: int
     
     # Environment
     ENVIRONMENT: str = "development"
