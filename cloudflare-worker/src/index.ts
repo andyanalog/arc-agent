@@ -278,6 +278,7 @@ Be helpful and concise. Don't explain your tool calls to the user.`,
 			// Process only the FIRST tool call to avoid duplicates
 			const toolCall = result.tool_calls[0];
 			let fnResponse;
+			let skipAIResponse = false; // Flag to skip AI response when backend sends message
 
 			try {
 				switch (toolCall.name) {
@@ -286,6 +287,7 @@ Be helpful and concise. Don't explain your tool calls to the user.`,
 						if (fnResponse.success && fnResponse.workflow_id) {
 							context.lastWorkflowId = fnResponse.workflow_id;
 							context.lastWorkflowType = 'registration';
+							skipAIResponse = true; // Backend sends verification code
 						}
 						break;
 
@@ -296,6 +298,7 @@ Be helpful and concise. Don't explain your tool calls to the user.`,
 							(toolCall.arguments as any).workflowId,
 							(toolCall.arguments as any).code
 						);
+						skipAIResponse = true; // Backend sends PIN setup link
 						break;
 
 					case 'sendMoney':
@@ -308,11 +311,13 @@ Be helpful and concise. Don't explain your tool calls to the user.`,
 						if (fnResponse.success && fnResponse.workflow_id) {
 							context.lastWorkflowId = fnResponse.workflow_id;
 							context.lastWorkflowType = 'payment';
+							skipAIResponse = true; // Backend sends confirmation request
 						}
 						break;
 
 					case 'checkBalance':
 						fnResponse = await checkBalance(c.env, phoneNumber);
+						// Let AI respond with balance in natural language
 						break;
 
 					case 'getTransactionHistory':
@@ -321,6 +326,7 @@ Be helpful and concise. Don't explain your tool calls to the user.`,
 							phoneNumber,
 							(toolCall.arguments as any).limit || 10
 						);
+						// Let AI respond with transaction summary
 						break;
 
 					case 'confirmAction':
@@ -333,6 +339,7 @@ Be helpful and concise. Don't explain your tool calls to the user.`,
 							// Clear context after confirmation
 							context.lastWorkflowId = undefined;
 							context.lastWorkflowType = undefined;
+							skipAIResponse = true; // Backend sends receipt
 						}
 						break;
 
@@ -346,6 +353,7 @@ Be helpful and concise. Don't explain your tool calls to the user.`,
 							// Clear context after cancellation
 							context.lastWorkflowId = undefined;
 							context.lastWorkflowType = undefined;
+							skipAIResponse = true; // Backend sends cancellation message
 						}
 						break;
 
@@ -365,6 +373,13 @@ Be helpful and concise. Don't explain your tool calls to the user.`,
 
 			// Save updated context
 			userContext.set(phoneNumber, context);
+
+			// If backend already sent a message, don't send AI response
+			if (skipAIResponse) {
+				return c.text('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200, {
+					'Content-Type': 'text/xml',
+				});
+			}
 
 			// Add tool response to messages
 			messages.push({

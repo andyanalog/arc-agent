@@ -25,9 +25,9 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
-// .wrangler/tmp/bundle-avelU1/checked-fetch.js
+// .wrangler/tmp/bundle-aQPT4c/checked-fetch.js
 var require_checked_fetch = __commonJS({
-  ".wrangler/tmp/bundle-avelU1/checked-fetch.js"() {
+  ".wrangler/tmp/bundle-aQPT4c/checked-fetch.js"() {
     "use strict";
     var urls = /* @__PURE__ */ new Set();
     function checkURL(request, init) {
@@ -56,13 +56,13 @@ var require_checked_fetch = __commonJS({
   }
 });
 
-// .wrangler/tmp/bundle-avelU1/middleware-loader.entry.ts
+// .wrangler/tmp/bundle-aQPT4c/middleware-loader.entry.ts
 var import_checked_fetch32 = __toESM(require_checked_fetch());
 
 // wrangler-modules-watch:wrangler:modules-watch
 var import_checked_fetch = __toESM(require_checked_fetch());
 
-// .wrangler/tmp/bundle-avelU1/middleware-insertion-facade.js
+// .wrangler/tmp/bundle-aQPT4c/middleware-insertion-facade.js
 var import_checked_fetch30 = __toESM(require_checked_fetch());
 
 // src/index.ts
@@ -1991,6 +1991,7 @@ Be helpful and concise. Don't explain your tool calls to the user.`
     if (result.tool_calls && result.tool_calls.length > 0) {
       const toolCall = result.tool_calls[0];
       let fnResponse;
+      let skipAIResponse = false;
       try {
         switch (toolCall.name) {
           case "registerUser":
@@ -1998,6 +1999,7 @@ Be helpful and concise. Don't explain your tool calls to the user.`
             if (fnResponse.success && fnResponse.workflow_id) {
               context.lastWorkflowId = fnResponse.workflow_id;
               context.lastWorkflowType = "registration";
+              skipAIResponse = true;
             }
             break;
           case "verifyCode":
@@ -2007,6 +2009,7 @@ Be helpful and concise. Don't explain your tool calls to the user.`
               toolCall.arguments.workflowId,
               toolCall.arguments.code
             );
+            skipAIResponse = true;
             break;
           case "sendMoney":
             fnResponse = await sendMoney(
@@ -2018,6 +2021,7 @@ Be helpful and concise. Don't explain your tool calls to the user.`
             if (fnResponse.success && fnResponse.workflow_id) {
               context.lastWorkflowId = fnResponse.workflow_id;
               context.lastWorkflowType = "payment";
+              skipAIResponse = true;
             }
             break;
           case "checkBalance":
@@ -2038,6 +2042,7 @@ Be helpful and concise. Don't explain your tool calls to the user.`
               fnResponse = await confirmAction(c.env, phoneNumber, confirmWorkflowId);
               context.lastWorkflowId = void 0;
               context.lastWorkflowType = void 0;
+              skipAIResponse = true;
             }
             break;
           case "cancelAction":
@@ -2048,6 +2053,7 @@ Be helpful and concise. Don't explain your tool calls to the user.`
               fnResponse = await cancelAction(c.env, phoneNumber, cancelWorkflowId);
               context.lastWorkflowId = void 0;
               context.lastWorkflowType = void 0;
+              skipAIResponse = true;
             }
             break;
           default:
@@ -2063,6 +2069,11 @@ Be helpful and concise. Don't explain your tool calls to the user.`
         response: fnResponse
       });
       userContext.set(phoneNumber, context);
+      if (skipAIResponse) {
+        return c.text('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200, {
+          "Content-Type": "text/xml"
+        });
+      }
       messages.push({
         role: "tool",
         name: toolCall.name,
@@ -2142,7 +2153,7 @@ var jsonError = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx)
 }, "jsonError");
 var middleware_miniflare3_json_error_default = jsonError;
 
-// .wrangler/tmp/bundle-avelU1/middleware-insertion-facade.js
+// .wrangler/tmp/bundle-aQPT4c/middleware-insertion-facade.js
 var __INTERNAL_WRANGLER_MIDDLEWARE__ = [
   middleware_ensure_req_body_drained_default,
   middleware_miniflare3_json_error_default
@@ -2175,7 +2186,7 @@ function __facade_invoke__(request, env, ctx, dispatch, finalMiddleware) {
 }
 __name(__facade_invoke__, "__facade_invoke__");
 
-// .wrangler/tmp/bundle-avelU1/middleware-loader.entry.ts
+// .wrangler/tmp/bundle-aQPT4c/middleware-loader.entry.ts
 var __Facade_ScheduledController__ = class ___Facade_ScheduledController__ {
   constructor(scheduledTime, cron, noRetry) {
     this.scheduledTime = scheduledTime;
