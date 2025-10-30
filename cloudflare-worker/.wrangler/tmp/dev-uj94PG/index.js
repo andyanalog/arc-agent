@@ -25,9 +25,9 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
-// .wrangler/tmp/bundle-poOLXF/checked-fetch.js
+// .wrangler/tmp/bundle-avelU1/checked-fetch.js
 var require_checked_fetch = __commonJS({
-  ".wrangler/tmp/bundle-poOLXF/checked-fetch.js"() {
+  ".wrangler/tmp/bundle-avelU1/checked-fetch.js"() {
     "use strict";
     var urls = /* @__PURE__ */ new Set();
     function checkURL(request, init) {
@@ -56,13 +56,13 @@ var require_checked_fetch = __commonJS({
   }
 });
 
-// .wrangler/tmp/bundle-poOLXF/middleware-loader.entry.ts
+// .wrangler/tmp/bundle-avelU1/middleware-loader.entry.ts
 var import_checked_fetch32 = __toESM(require_checked_fetch());
 
 // wrangler-modules-watch:wrangler:modules-watch
 var import_checked_fetch = __toESM(require_checked_fetch());
 
-// .wrangler/tmp/bundle-poOLXF/middleware-insertion-facade.js
+// .wrangler/tmp/bundle-avelU1/middleware-insertion-facade.js
 var import_checked_fetch30 = __toESM(require_checked_fetch());
 
 // src/index.ts
@@ -1744,6 +1744,7 @@ var cors = /* @__PURE__ */ __name((options) => {
 // src/index.ts
 var app = new Hono2();
 app.use("/*", cors());
+var userContext = /* @__PURE__ */ new Map();
 async function registerUser(env, phoneNumber) {
   const response = await fetch(`${env.BACKEND_API_URL}/api/register`, {
     method: "POST",
@@ -1853,35 +1854,32 @@ app.post("/webhook/whatsapp", async (c) => {
       message: body,
       messageSid
     });
+    let context = userContext.get(phoneNumber) || {};
     const messages = [
       {
         role: "system",
-        content: `You are ArcAgent, a conversational AI financial assistant for USDC payments on WhatsApp.
+        content: `You are ArcAgent, a friendly AI assistant for USDC payments on WhatsApp.
 
-IMPORTANT WORKFLOW RULES:
-1. When a new user says "Hi", "Hello", "Register", or similar greetings, call registerUser tool IMMEDIATELY
-2. After registration starts, the user will receive a verification code via WhatsApp (sent by the backend)
-3. When user sends a 6-digit number, call verifyCode tool with the code and workflow ID "registration-${phoneNumber}"
-4. Do NOT call sendMoney or other tools until the user is registered
-5. When user wants to send money, ONLY call sendMoney tool with the exact amount and recipient
+RULES:
+- Call tools silently without explaining what you're doing
+- Never say "I will call" or "Tool call" - just call the tool and respond based on the result
+- Be conversational and natural in your responses
+- Only use confirmAction/cancelAction when there's an active payment workflow
 
-Your capabilities:
-- Help users register and set up their wallet (use registerUser tool)
-- Verify registration codes (use verifyCode tool)
-- Send USDC payments to recipients (use sendMoney tool)
-- Check wallet balance (use checkBalance tool)
-- View transaction history (use getTransactionHistory tool)
-- Confirm or cancel pending transactions (use confirmAction/cancelAction tools)
+CONTEXT:
+- Last workflow: ${context.lastWorkflowId || "none"}
+- Workflow type: ${context.lastWorkflowType || "none"}
 
-Guidelines:
-- Be friendly, concise, and helpful
-- For greetings from new users, call registerUser immediately
-- When you see a 6-digit code after registration, call verifyCode
-- Always specify amounts clearly with $ symbol
-- ONLY use the provided tools - never invent tool names
-- Check if user is registered before allowing payments
+TOOL USAGE:
+- "Hi/Hello/Register" \u2192 registerUser
+- 6-digit code \u2192 verifyCode with workflow "registration-${phoneNumber}"
+- "Send $X to Y" \u2192 sendMoney (creates payment workflow)
+- "Balance/How much" \u2192 checkBalance
+- "Transactions/History" \u2192 getTransactionHistory
+- "CONFIRM" \u2192 confirmAction (only if lastWorkflowType is 'payment')
+- "CANCEL" \u2192 cancelAction (only if lastWorkflowType is 'payment')
 
-Current user phone: ${phoneNumber}`
+Be helpful and concise. Don't explain your tool calls to the user.`
       },
       {
         role: "user",
@@ -1990,70 +1988,88 @@ Current user phone: ${phoneNumber}`
       messages,
       tools
     });
-    let iterationCount = 0;
-    const maxIterations = 5;
-    while (result.tool_calls && result.tool_calls.length > 0 && iterationCount < maxIterations) {
-      iterationCount++;
-      for (const toolCall of result.tool_calls) {
-        let fnResponse;
-        try {
-          switch (toolCall.name) {
-            case "registerUser":
-              fnResponse = await registerUser(c.env, phoneNumber);
-              break;
-            case "verifyCode":
-              fnResponse = await verifyCode(
-                c.env,
-                phoneNumber,
-                toolCall.arguments.workflowId,
-                toolCall.arguments.code
-              );
-              break;
-            case "sendMoney":
-              fnResponse = await sendMoney(
-                c.env,
-                phoneNumber,
-                toolCall.arguments.amount,
-                toolCall.arguments.recipient
-              );
-              break;
-            case "checkBalance":
-              fnResponse = await checkBalance(c.env, phoneNumber);
-              break;
-            case "getTransactionHistory":
-              fnResponse = await getTransactionHistory(
-                c.env,
-                phoneNumber,
-                toolCall.arguments.limit || 10
-              );
-              break;
-            case "confirmAction":
-              fnResponse = await confirmAction(c.env, phoneNumber, toolCall.arguments.workflowId);
-              break;
-            case "cancelAction":
-              fnResponse = await cancelAction(c.env, phoneNumber, toolCall.arguments.workflowId);
-              break;
-            default:
-              fnResponse = { error: `Unknown tool: ${toolCall.name}` };
-              break;
-          }
-        } catch (error) {
-          fnResponse = { error: `Tool execution failed: ${error}` };
+    if (result.tool_calls && result.tool_calls.length > 0) {
+      const toolCall = result.tool_calls[0];
+      let fnResponse;
+      try {
+        switch (toolCall.name) {
+          case "registerUser":
+            fnResponse = await registerUser(c.env, phoneNumber);
+            if (fnResponse.success && fnResponse.workflow_id) {
+              context.lastWorkflowId = fnResponse.workflow_id;
+              context.lastWorkflowType = "registration";
+            }
+            break;
+          case "verifyCode":
+            fnResponse = await verifyCode(
+              c.env,
+              phoneNumber,
+              toolCall.arguments.workflowId,
+              toolCall.arguments.code
+            );
+            break;
+          case "sendMoney":
+            fnResponse = await sendMoney(
+              c.env,
+              phoneNumber,
+              toolCall.arguments.amount,
+              toolCall.arguments.recipient
+            );
+            if (fnResponse.success && fnResponse.workflow_id) {
+              context.lastWorkflowId = fnResponse.workflow_id;
+              context.lastWorkflowType = "payment";
+            }
+            break;
+          case "checkBalance":
+            fnResponse = await checkBalance(c.env, phoneNumber);
+            break;
+          case "getTransactionHistory":
+            fnResponse = await getTransactionHistory(
+              c.env,
+              phoneNumber,
+              toolCall.arguments.limit || 10
+            );
+            break;
+          case "confirmAction":
+            const confirmWorkflowId = toolCall.arguments.workflowId || context.lastWorkflowId;
+            if (!confirmWorkflowId || context.lastWorkflowType !== "payment") {
+              fnResponse = { success: false, error: 'No pending payment to confirm. Say "Send $X to Y" to start a payment.' };
+            } else {
+              fnResponse = await confirmAction(c.env, phoneNumber, confirmWorkflowId);
+              context.lastWorkflowId = void 0;
+              context.lastWorkflowType = void 0;
+            }
+            break;
+          case "cancelAction":
+            const cancelWorkflowId = toolCall.arguments.workflowId || context.lastWorkflowId;
+            if (!cancelWorkflowId || context.lastWorkflowType !== "payment") {
+              fnResponse = { success: false, error: "No pending payment to cancel." };
+            } else {
+              fnResponse = await cancelAction(c.env, phoneNumber, cancelWorkflowId);
+              context.lastWorkflowId = void 0;
+              context.lastWorkflowType = void 0;
+            }
+            break;
+          default:
+            fnResponse = { error: `Unknown tool: ${toolCall.name}` };
+            break;
         }
-        console.log({
-          tool: toolCall.name,
-          arguments: toolCall.arguments,
-          response: fnResponse
-        });
-        messages.push({
-          role: "tool",
-          name: toolCall.name,
-          content: JSON.stringify(fnResponse)
-        });
+      } catch (error) {
+        fnResponse = { error: `Tool execution failed: ${error}` };
       }
+      console.log({
+        tool: toolCall.name,
+        arguments: toolCall.arguments,
+        response: fnResponse
+      });
+      userContext.set(phoneNumber, context);
+      messages.push({
+        role: "tool",
+        name: toolCall.name,
+        content: JSON.stringify(fnResponse)
+      });
       result = await c.env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
-        messages,
-        tools
+        messages
       });
     }
     let responseText = result.response || "I encountered an issue processing your request.";
@@ -2126,7 +2142,7 @@ var jsonError = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx)
 }, "jsonError");
 var middleware_miniflare3_json_error_default = jsonError;
 
-// .wrangler/tmp/bundle-poOLXF/middleware-insertion-facade.js
+// .wrangler/tmp/bundle-avelU1/middleware-insertion-facade.js
 var __INTERNAL_WRANGLER_MIDDLEWARE__ = [
   middleware_ensure_req_body_drained_default,
   middleware_miniflare3_json_error_default
@@ -2159,7 +2175,7 @@ function __facade_invoke__(request, env, ctx, dispatch, finalMiddleware) {
 }
 __name(__facade_invoke__, "__facade_invoke__");
 
-// .wrangler/tmp/bundle-poOLXF/middleware-loader.entry.ts
+// .wrangler/tmp/bundle-avelU1/middleware-loader.entry.ts
 var __Facade_ScheduledController__ = class ___Facade_ScheduledController__ {
   constructor(scheduledTime, cron, noRetry) {
     this.scheduledTime = scheduledTime;

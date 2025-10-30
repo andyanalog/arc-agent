@@ -12,6 +12,10 @@ const app = new Hono<{ Bindings: Env }>();
 
 app.use('/*', cors());
 
+// In-memory storage for user context (workflow IDs, etc.)
+// In production, use KV storage or database
+const userContext = new Map<string, { lastWorkflowId?: string; lastWorkflowType?: string }>();
+
 // Tool implementations - these call your FastAPI backend
 async function registerUser(env: Env, phoneNumber: string) {
 	const response = await fetch(`${env.BACKEND_API_URL}/api/register`, {
@@ -127,36 +131,35 @@ app.post('/webhook/whatsapp', async (c) => {
 			messageSid,
 		});
 
+		// Get user context
+		let context = userContext.get(phoneNumber) || {};
+
 		// Build conversation messages
 		const messages: any[] = [
 			{
 				role: 'system',
-				content: `You are ArcAgent, a conversational AI financial assistant for USDC payments on WhatsApp.
+				content: `You are ArcAgent, a friendly AI assistant for USDC payments on WhatsApp.
 
-IMPORTANT WORKFLOW RULES:
-1. When a new user says "Hi", "Hello", "Register", or similar greetings, call registerUser tool IMMEDIATELY
-2. After registration starts, the user will receive a verification code via WhatsApp (sent by the backend)
-3. When user sends a 6-digit number, call verifyCode tool with the code and workflow ID "registration-${phoneNumber}"
-4. Do NOT call sendMoney or other tools until the user is registered
-5. When user wants to send money, ONLY call sendMoney tool with the exact amount and recipient
+RULES:
+- Call tools silently without explaining what you're doing
+- Never say "I will call" or "Tool call" - just call the tool and respond based on the result
+- Be conversational and natural in your responses
+- Only use confirmAction/cancelAction when there's an active payment workflow
 
-Your capabilities:
-- Help users register and set up their wallet (use registerUser tool)
-- Verify registration codes (use verifyCode tool)
-- Send USDC payments to recipients (use sendMoney tool)
-- Check wallet balance (use checkBalance tool)
-- View transaction history (use getTransactionHistory tool)
-- Confirm or cancel pending transactions (use confirmAction/cancelAction tools)
+CONTEXT:
+- Last workflow: ${context.lastWorkflowId || 'none'}
+- Workflow type: ${context.lastWorkflowType || 'none'}
 
-Guidelines:
-- Be friendly, concise, and helpful
-- For greetings from new users, call registerUser immediately
-- When you see a 6-digit code after registration, call verifyCode
-- Always specify amounts clearly with $ symbol
-- ONLY use the provided tools - never invent tool names
-- Check if user is registered before allowing payments
+TOOL USAGE:
+- "Hi/Hello/Register" → registerUser
+- 6-digit code → verifyCode with workflow "registration-${phoneNumber}"
+- "Send $X to Y" → sendMoney (creates payment workflow)
+- "Balance/How much" → checkBalance
+- "Transactions/History" → getTransactionHistory
+- "CONFIRM" → confirmAction (only if lastWorkflowType is 'payment')
+- "CANCEL" → cancelAction (only if lastWorkflowType is 'payment')
 
-Current user phone: ${phoneNumber}`,
+Be helpful and concise. Don't explain your tool calls to the user.`,
 			},
 			{
 				role: 'user',
@@ -270,87 +273,109 @@ Current user phone: ${phoneNumber}`,
 			tools,
 		});
 
-		// Process tool calls iteratively
-		let iterationCount = 0;
-		const maxIterations = 5;
+		// Process tool calls - only process ONCE
+		if (result.tool_calls && result.tool_calls.length > 0) {
+			// Process only the FIRST tool call to avoid duplicates
+			const toolCall = result.tool_calls[0];
+			let fnResponse;
 
-		while (result.tool_calls && result.tool_calls.length > 0 && iterationCount < maxIterations) {
-			iterationCount++;
+			try {
+				switch (toolCall.name) {
+					case 'registerUser':
+						fnResponse = await registerUser(c.env, phoneNumber);
+						if (fnResponse.success && fnResponse.workflow_id) {
+							context.lastWorkflowId = fnResponse.workflow_id;
+							context.lastWorkflowType = 'registration';
+						}
+						break;
 
-			// Process all tool calls in this iteration
-			for (const toolCall of result.tool_calls) {
-				let fnResponse;
+					case 'verifyCode':
+						fnResponse = await verifyCode(
+							c.env,
+							phoneNumber,
+							(toolCall.arguments as any).workflowId,
+							(toolCall.arguments as any).code
+						);
+						break;
 
-				try {
-					switch (toolCall.name) {
-						case 'registerUser':
-							fnResponse = await registerUser(c.env, phoneNumber);
-							break;
+					case 'sendMoney':
+						fnResponse = await sendMoney(
+							c.env,
+							phoneNumber,
+							(toolCall.arguments as any).amount,
+							(toolCall.arguments as any).recipient
+						);
+						if (fnResponse.success && fnResponse.workflow_id) {
+							context.lastWorkflowId = fnResponse.workflow_id;
+							context.lastWorkflowType = 'payment';
+						}
+						break;
 
-						case 'verifyCode':
-							fnResponse = await verifyCode(
-								c.env,
-								phoneNumber,
-								(toolCall.arguments as any).workflowId,
-								(toolCall.arguments as any).code
-							);
-							break;
+					case 'checkBalance':
+						fnResponse = await checkBalance(c.env, phoneNumber);
+						break;
 
-						case 'sendMoney':
-							fnResponse = await sendMoney(
-								c.env,
-								phoneNumber,
-								(toolCall.arguments as any).amount,
-								(toolCall.arguments as any).recipient
-							);
-							break;
+					case 'getTransactionHistory':
+						fnResponse = await getTransactionHistory(
+							c.env,
+							phoneNumber,
+							(toolCall.arguments as any).limit || 10
+						);
+						break;
 
-						case 'checkBalance':
-							fnResponse = await checkBalance(c.env, phoneNumber);
-							break;
+					case 'confirmAction':
+						const confirmWorkflowId = (toolCall.arguments as any).workflowId || context.lastWorkflowId;
+						// Only allow confirmation if there's an active payment workflow
+						if (!confirmWorkflowId || context.lastWorkflowType !== 'payment') {
+							fnResponse = { success: false, error: 'No pending payment to confirm. Say "Send $X to Y" to start a payment.' };
+						} else {
+							fnResponse = await confirmAction(c.env, phoneNumber, confirmWorkflowId);
+							// Clear context after confirmation
+							context.lastWorkflowId = undefined;
+							context.lastWorkflowType = undefined;
+						}
+						break;
 
-						case 'getTransactionHistory':
-							fnResponse = await getTransactionHistory(
-								c.env,
-								phoneNumber,
-								(toolCall.arguments as any).limit || 10
-							);
-							break;
+					case 'cancelAction':
+						const cancelWorkflowId = (toolCall.arguments as any).workflowId || context.lastWorkflowId;
+						// Only allow cancellation if there's an active payment workflow
+						if (!cancelWorkflowId || context.lastWorkflowType !== 'payment') {
+							fnResponse = { success: false, error: 'No pending payment to cancel.' };
+						} else {
+							fnResponse = await cancelAction(c.env, phoneNumber, cancelWorkflowId);
+							// Clear context after cancellation
+							context.lastWorkflowId = undefined;
+							context.lastWorkflowType = undefined;
+						}
+						break;
 
-						case 'confirmAction':
-							fnResponse = await confirmAction(c.env, phoneNumber, (toolCall.arguments as any).workflowId);
-							break;
-
-						case 'cancelAction':
-							fnResponse = await cancelAction(c.env, phoneNumber, (toolCall.arguments as any).workflowId);
-							break;
-
-						default:
-							fnResponse = { error: `Unknown tool: ${toolCall.name}` };
-							break;
-					}
-				} catch (error) {
-					fnResponse = { error: `Tool execution failed: ${error}` };
+					default:
+						fnResponse = { error: `Unknown tool: ${toolCall.name}` };
+						break;
 				}
-
-				console.log({
-					tool: toolCall.name,
-					arguments: toolCall.arguments,
-					response: fnResponse,
-				});
-
-				// Add tool response to messages
-				messages.push({
-					role: 'tool',
-					name: toolCall.name,
-					content: JSON.stringify(fnResponse),
-				});
+			} catch (error) {
+				fnResponse = { error: `Tool execution failed: ${error}` };
 			}
 
-			// Get next AI response with tool results
+			console.log({
+				tool: toolCall.name,
+				arguments: toolCall.arguments,
+				response: fnResponse,
+			});
+
+			// Save updated context
+			userContext.set(phoneNumber, context);
+
+			// Add tool response to messages
+			messages.push({
+				role: 'tool',
+				name: toolCall.name,
+				content: JSON.stringify(fnResponse),
+			});
+
+			// Get AI response with tool result
 			result = await c.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
 				messages,
-				tools,
 			});
 		}
 
