@@ -369,12 +369,31 @@ async def cancel_workflow(
         client = await get_temporal_client()
         handle = client.get_workflow_handle(request.workflow_id)
         
+        # Check if workflow is running
+        try:
+            description = await handle.describe()
+            if description.status.name not in ["RUNNING", "PENDING"]:
+                return {
+                    "success": False,
+                    "error": "workflow_not_active",
+                    "message": f"Workflow is {description.status.name}, cannot cancel.",
+                }
+        except Exception as desc_error:
+            logger.error(f"Could not describe workflow: {desc_error}")
+            return {
+                "success": False,
+                "error": "workflow_not_found",
+                "message": "Workflow not found or already completed.",
+            }
+        
+        # Send cancel signal
         if "payment" in request.workflow_id:
             await handle.signal("cancel_payment")
+            logger.info(f"Cancel signal sent to workflow: {request.workflow_id}")
         
         return {
             "success": True,
-            "message": "Action cancelled",
+            "message": "Cancellation request sent",
         }
         
     except Exception as e:
