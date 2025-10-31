@@ -40,36 +40,154 @@ async def get_wallet_balance(wallet_id: str) -> float:
             
             # Match USDC or USDC-TESTNET
             if 'USDC' in symbol:
-                amount = float(token_balance['amount'])
-                logger.info(f"Wallet {wallet_id} balance: {amount} {symbol}")
+                # Parse amount properly - Circle returns string
+                amount_str = token_balance['amount']
+                amount = float(amount_str) if amount_str else 0.0
+                
+                logger.info(f"Wallet {wallet_id} balance: {amount} {symbol} (raw: {amount_str})")
                 return amount
         
         logger.warning(f"No USDC balance found for wallet {wallet_id}")
+        logger.info(f"Available tokens: {[tb['token']['symbol'] for tb in token_balances]}")
         return 0.0
     except Exception as e:
         logger.error(f"Failed to get wallet balance: {str(e)}")
+        logger.exception(e)
         return 0.0
 
 
 @activity.defn
 async def initiate_transfer(from_wallet_id: str, to_address: str, amount: float) -> Dict[str, Any]:
-    """Initiate transfer (placeholder)"""
-    logger.info(f"[PLACEHOLDER] Transfer: {from_wallet_id} -> {to_address}: ${amount}")
-    import uuid
-    return {"transfer_id": f"transfer_{uuid.uuid4().hex[:16]}", "status": "pending"}
+    """Initiate transfer via Circle"""
+    logger.info(f"Initiating transfer: {from_wallet_id} -> {to_address}: ${amount}")
+    
+    try:
+        from config import settings
+        
+        # Get token ID from wallet balance
+        balance_response = circle_service.get_wallet_balance(from_wallet_id)
+        token_balances = balance_response['data']['tokenBalances']
+        
+        token_id = None
+        for token_balance in token_balances:
+            token = token_balance['token']
+            if 'USDC' in token['symbol']:
+                token_id = token['id']
+                logger.info(f"Found USDC token ID: {token_id}")
+                break
+        
+        if not token_id:
+            # Fallback to config if available
+            token_id = settings.CIRCLE_USDC_TOKEN_ID
+            if not token_id:
+                raise Exception("USDC token not found in wallet")
+        
+        logger.info(f"Using token ID: {token_id}")
+        
+        # Convert amount to string
+        amount_str = str(amount)
+        
+        # Create transfer transaction
+        transfer_response = circle_service.create_transaction_transfer(
+            wallet_id=from_wallet_id,
+            token_id=token_id,
+            destination_address=to_address,
+            amount=amount_str
+        )
+        
+        transaction_id = transfer_response['data']['id']
+        status = transfer_response['data']['state']
+        
+        logger.info(f"Transfer initiated: {transaction_id}, status: {status}")
+        
+        return {
+            "transfer_id": transaction_id,
+            "status": status
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to initiate transfer: {str(e)}")
+        raise
 
 
 @activity.defn
 async def check_transfer_status(transfer_id: str) -> Dict[str, Any]:
-    """Check transfer status (placeholder)"""
-    logger.info(f"[PLACEHOLDER] Checking transfer: {transfer_id}")
-    import uuid
-    return {"transfer_id": transfer_id, "status": "confirmed", "tx_hash": f"0x{uuid.uuid4().hex}"}
+    """Check transfer status"""
+    logger.info(f"Checking transfer status: {transfer_id}")
+    
+    try:
+        transaction_response = circle_service.get_transaction(transfer_id)
+        transaction = transaction_response['data']['transaction']
+        
+        status = transaction['state']
+        tx_hash = transaction.get('txHash', '')
+        
+        logger.info(f"Transfer {transfer_id} status: {status}, tx_hash: {tx_hash}")
+        
+        # Map Circle states to our status
+        status_map = {
+            "COMPLETE": "confirmed",
+            "PENDING_RISK_SCREENING": "pending",
+            "INITIATED": "pending",
+            "SENT": "pending",
+            "CONFIRMED": "confirmed",
+            "FAILED": "failed",
+            "DENIED": "failed"
+        }
+        
+        return {
+            "transfer_id": transfer_id,
+            "status": status_map.get(status, "pending"),
+            "tx_hash": tx_hash
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to check transfer status: {str(e)}")
+        raise
 
 
 @activity.defn
 async def resolve_recipient_address(recipient_identifier: str) -> str:
-    """Resolve recipient (placeholder)"""
-    logger.info(f"[PLACEHOLDER] Resolving recipient: {recipient_identifier}")
-    import uuid
-    return f"0x{uuid.uuid4().hex[:40]}"
+    """Resolve recipient to wallet address"""
+    logger.info(f"Resolving recipient: {recipient_identifier}")
+    
+    # Check if it's already a wallet address (starts with 0x and 42 chars)
+    if recipient_identifier.startswith('0x') and len(recipient_identifier) == 42:
+        logger.info(f"Recipient is already a wallet address: {recipient_identifier}")
+        return recipient_identifier
+    
+    # Check if it's a phone number - look up in database
+    if recipient_identifier.startswith('+') or recipient_identifier.replace(' ', '').isdigit():
+        from models.database import SessionLocal, User
+        
+        db = SessionLocal()
+        try:
+            # Clean phone number
+            clean_phone = recipient_identifier.strip()
+            if not clean_phone.startswith('+'):
+                clean_phone = f"+{clean_phone}"
+            
+            user = db.query(User).filter(User.whatsapp_number == clean_phone).first()
+            
+            if user and user.circle_wallet_address:
+                logger.info(f"Found user wallet: {user.circle_wallet_address}")
+                return user.circle_wallet_address
+            else:
+                raise Exception(f"User not found or not registered: {recipient_identifier}")
+        finally:
+            db.close()
+    
+    # Try to find by user ID or name (you can extend this)
+    from models.database import SessionLocal, User
+    
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.id == recipient_identifier).first()
+        
+        if user and user.circle_wallet_address:
+            logger.info(f"Found user wallet by ID: {user.circle_wallet_address}")
+            return user.circle_wallet_address
+        else:
+            raise Exception(f"Recipient not found: {recipient_identifier}")
+    finally:
+        db.close()

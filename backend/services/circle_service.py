@@ -107,6 +107,56 @@ class CircleService:
             "wallet_id": wallet['id'],
             "wallet_address": wallet['address']
         }
+    
+    def create_transaction_transfer(
+        self,
+        wallet_id: str,
+        token_id: str,
+        destination_address: str,
+        amount: str
+    ) -> Dict[str, Any]:
+        """Create a transfer transaction"""
+        url = f"{self.base_url}/developer/transactions/transfer"
+        payload = {
+            "idempotencyKey": str(uuid.uuid4()),
+            "entitySecretCiphertext": self._get_entity_secret_ciphertext(),
+            "walletId": wallet_id,
+            "tokenId": token_id,
+            "destinationAddress": destination_address,
+            "amounts": [amount],
+            "feeLevel": "MEDIUM"
+        }
+        
+        logger.info(f"Transfer request payload (without secret): walletId={wallet_id}, tokenId={token_id}, destinationAddress={destination_address}, amounts={[amount]}")
+        
+        response = requests.post(url, headers=self._get_headers(), json=payload)
+        
+        if not response.ok:
+            logger.error(f"Transfer failed: {response.status_code}")
+            logger.error(f"Response body: {response.text}")
+        
+        response.raise_for_status()
+        return response.json()
+    
+    def get_transaction(self, transaction_id: str) -> Dict[str, Any]:
+        """Get transaction status"""
+        url = f"{self.base_url}/transactions/{transaction_id}"
+        response = requests.get(url, headers=self._get_headers())
+        response.raise_for_status()
+        return response.json()
+    
+    # def get_token_id(self, blockchain: str = "ARC-TESTNET") -> Optional[str]:
+    #     """Get USDC token ID for blockchain"""
+    #     url = f"{self.base_url}/tokens"
+    #     response = requests.get(url, headers=self._get_headers())
+    #     response.raise_for_status()
+        
+    #     tokens = response.json()['data']['tokens']
+    #     for token in tokens:
+    #         if token['blockchain'] == blockchain and 'USDC' in token['symbol']:
+    #             return token['id']
+        
+    #     return None
 
 
 circle_service = CircleService()

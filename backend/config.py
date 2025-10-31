@@ -1,7 +1,7 @@
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from pydantic_settings import BaseSettings  # Changed from pydantic
+from pydantic_settings import BaseSettings
 from functools import lru_cache
 
 
@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     # Circle
     CIRCLE_API_KEY: str
     CIRCLE_ENTITY_SECRET: str
+    CIRCLE_USDC_TOKEN_ID: str = "0x3600000000000000000000000000000000000000"
     
     # Arc
     ARC_RPC_URL: str = "https://rpc.testnet.arc.network"
