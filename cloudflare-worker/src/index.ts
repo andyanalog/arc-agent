@@ -18,6 +18,7 @@ const userContext = new Map<string, { lastWorkflowId?: string; lastWorkflowType?
 
 // Tool implementations - these call your FastAPI backend
 async function registerUser(env: Env, phoneNumber: string) {
+	console.log('Calling backend:', `${env.BACKEND_API_URL}/api/register`);
 	const response = await fetch(`${env.BACKEND_API_URL}/api/register`, {
 		method: 'POST',
 		headers: {
@@ -26,6 +27,7 @@ async function registerUser(env: Env, phoneNumber: string) {
 		},
 		body: JSON.stringify({ phone_number: phoneNumber }),
 	});
+	console.log('Backend response status:', response.status);
 	return await response.json();
 }
 

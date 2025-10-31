@@ -10,7 +10,7 @@ import logging
 from config import settings
 from models.database import init_db, get_db, User, Transaction
 from workflows import RegistrationWorkflow, PaymentWorkflow
-from services import twilio_service
+from services import twilio_service, circle_service
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
@@ -28,8 +28,6 @@ async def startup_event():
 async def verify_api_key(x_api_key: str = Header(...)):
     """Verify API key from Cloudflare Worker"""
     expected_key = settings.BACKEND_API_KEY
-    logger.info(f"Received API key: {x_api_key[:10]}... (length: {len(x_api_key)})")
-    logger.info(f"Expected API key: {expected_key[:10]}... (length: {len(expected_key)})")
     if x_api_key != expected_key:
         raise HTTPException(status_code=403, detail="Invalid API key")
     return x_api_key
@@ -92,11 +90,9 @@ async def register_user(
     try:
         client = await get_temporal_client()
         
-        # Check if user already has active workflow
         workflow_id = f"registration-{request.phone_number}"
         
         try:
-            # Start new registration workflow
             handle = await client.start_workflow(
                 RegistrationWorkflow.run,
                 request.phone_number,
@@ -139,7 +135,6 @@ async def verify_code_workflow(
         client = await get_temporal_client()
         handle = client.get_workflow_handle(request.workflow_id)
         
-        # Send verify signal to workflow
         await handle.signal("verify_code", request.code)
         
         return {
@@ -165,7 +160,6 @@ async def set_pin_workflow(
         client = await get_temporal_client()
         handle = client.get_workflow_handle(request.workflow_id)
         
-        # Send set_pin signal to workflow
         await handle.signal("set_pin", {
             "pin_hash": request.pin_hash,
             "token": request.token
@@ -202,7 +196,6 @@ async def send_money(
     4. Sends receipt
     """
     try:
-        # Validate user exists and is registered
         user = db.query(User).filter(User.whatsapp_number == request.phone_number).first()
         if not user or not user.registration_completed:
             return {
@@ -211,7 +204,6 @@ async def send_money(
                 "message": "You need to register first. Send 'Hi' to get started.",
             }
         
-        # Validate amount
         if request.amount <= 0:
             return {
                 "success": False,
@@ -221,10 +213,8 @@ async def send_money(
         
         client = await get_temporal_client()
         
-        # Create unique workflow ID
         workflow_id = f"payment-{request.phone_number}-{int(datetime.now().timestamp())}"
         
-        # Start payment workflow
         handle = await client.start_workflow(
             PaymentWorkflow.run,
             args=[request.phone_number, request.amount, request.recipient],
@@ -268,7 +258,6 @@ async def check_balance(
                 "message": "You need to register first.",
             }
         
-        # Get balance from Circle (using dummy for now)
         from activities.circle_activities import get_wallet_balance
         balance = await get_wallet_balance(user.circle_wallet_id)
         
@@ -353,12 +342,8 @@ async def confirm_workflow(
         client = await get_temporal_client()
         handle = client.get_workflow_handle(request.workflow_id)
         
-        # Send confirm signal based on workflow type
         if "payment" in request.workflow_id:
             await handle.signal("confirm_payment")
-        elif "registration" in request.workflow_id:
-            # Handle verification code or PIN confirmation
-            pass
         
         return {
             "success": True,
@@ -384,7 +369,6 @@ async def cancel_workflow(
         client = await get_temporal_client()
         handle = client.get_workflow_handle(request.workflow_id)
         
-        # Send cancel signal based on workflow type
         if "payment" in request.workflow_id:
             await handle.signal("cancel_payment")
         
