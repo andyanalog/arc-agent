@@ -5,6 +5,7 @@ from temporalio import activity
 from typing import Dict, Any
 import logging
 from services.circle_service import circle_service
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -112,34 +113,51 @@ async def initiate_transfer(from_wallet_id: str, to_address: str, amount: float)
 
 @activity.defn
 async def check_transfer_status(transfer_id: str) -> Dict[str, Any]:
-    """Check transfer status"""
+    """Check transfer status and wait for tx_hash"""
     logger.info(f"Checking transfer status: {transfer_id}")
     
     try:
-        transaction_response = circle_service.get_transaction(transfer_id)
-        transaction = transaction_response['data']['transaction']
+        max_attempts = 60
+        attempt = 0
         
-        status = transaction['state']
-        tx_hash = transaction.get('txHash', '')
+        while attempt < max_attempts:
+            transaction_response = circle_service.get_transaction(transfer_id)
+            transaction = transaction_response['data']['transaction']
+            
+            status = transaction['state']
+            tx_hash = transaction.get('txHash', '')
+            
+            logger.info(f"Transfer {transfer_id} status: {status}, tx_hash: {tx_hash} (attempt {attempt + 1}/{max_attempts})")
+            
+            # If we have a tx_hash, return immediately
+            if tx_hash and tx_hash.startswith('0x'):
+                status_map = {
+                    "COMPLETE": "confirmed",
+                    "PENDING_RISK_SCREENING": "pending",
+                    "INITIATED": "pending",
+                    "SENT": "pending",
+                    "CONFIRMED": "confirmed",
+                    "FAILED": "failed",
+                    "DENIED": "failed"
+                }
+                
+                return {
+                    "transfer_id": transfer_id,
+                    "status": status_map.get(status, "pending"),
+                    "tx_hash": tx_hash
+                }
+            
+            # Check if transaction failed
+            if status in ["FAILED", "DENIED"]:
+                raise Exception(f"Transfer failed with status: {status}")
+            
+            # Wait before next attempt
+            await asyncio.sleep(3)
+            attempt += 1
         
-        logger.info(f"Transfer {transfer_id} status: {status}, tx_hash: {tx_hash}")
-        
-        # Map Circle states to our status
-        status_map = {
-            "COMPLETE": "confirmed",
-            "PENDING_RISK_SCREENING": "pending",
-            "INITIATED": "pending",
-            "SENT": "pending",
-            "CONFIRMED": "confirmed",
-            "FAILED": "failed",
-            "DENIED": "failed"
-        }
-        
-        return {
-            "transfer_id": transfer_id,
-            "status": status_map.get(status, "pending"),
-            "tx_hash": tx_hash
-        }
+        # If we exhausted attempts without tx_hash
+        logger.error(f"No tx_hash found after {max_attempts} attempts for transfer {transfer_id}")
+        raise Exception("Transaction timeout: tx_hash not available")
         
     except Exception as e:
         logger.error(f"Failed to check transfer status: {str(e)}")

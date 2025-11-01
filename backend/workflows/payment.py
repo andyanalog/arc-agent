@@ -158,17 +158,17 @@ class PaymentWorkflow:
             retry_policy=RetryPolicy(maximum_attempts=3)
         )
         
-        # Step 8: Check transfer status
+        # Step 8: Check transfer status and wait for tx_hash
         transfer_status = await workflow.execute_activity(
             circle_activities.check_transfer_status,
             transfer_result["transfer_id"],
-            start_to_close_timeout=timedelta(seconds=30),
-            retry_policy=RetryPolicy(maximum_attempts=5)
+            start_to_close_timeout=timedelta(minutes=4),
+            retry_policy=RetryPolicy(maximum_attempts=3)
         )
         
-        tx_hash = transfer_status["tx_hash"]
+        tx_hash = transfer_status.get("tx_hash", "")
         
-        # Step 9: Update transaction
+        # Step 9: Update transaction with tx_hash
         await workflow.execute_activity(
             database_activities.update_transaction_status,
             args=[self.transaction_id, "confirmed", tx_hash],

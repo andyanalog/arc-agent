@@ -106,12 +106,17 @@ Need help? Just type "Help"
         timestamp: str
     ) -> str:
         """Send transaction receipt"""
+        explorer_url = f"https://testnet.arcscan.app/tx/{tx_hash}"
+        
         body = f"""✅ Payment Successful!
 
 Amount: ${amount:.2f}
 To: {recipient}
 Tx Hash: {tx_hash[:10]}...{tx_hash[-8:]}
 Time: {timestamp}
+
+View on explorer:
+{explorer_url}
 
 Your balance has been updated.
         """
