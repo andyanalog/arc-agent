@@ -56,7 +56,7 @@ async def send_pin_setup_link(phone_number: str, setup_token: str) -> str:
     
     setup_url = f"http://localhost:8000/setup-pin?token={setup_token}&phone={quote(clean_phone)}"
     
-    body = f"""🔒 Secure your ArcAgent wallet!
+    body = f"""🔒 Let's create your ArcAgent wallet
 
 Click the link below to set up your PIN:
 {setup_url}

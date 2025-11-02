@@ -139,10 +139,39 @@ async def get_user(phone_number: str) -> Optional[Dict[str, Any]]:
     finally:
         db.close()
 
+@activity.defn
+async def auto_verify_user(phone_number: str) -> bool:
+    """
+    Auto-verify user (skip manual code entry)
+    
+    Args:
+        phone_number: User's phone number
+    
+    Returns:
+        True if verified successfully
+    """
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.whatsapp_number == phone_number).first()
+        
+        if not user:
+            logger.warning(f"User not found: {phone_number}")
+            return False
+        
+        # Mark as verified and generate nonce
+        user.is_verified = True
+        user.nonce = secrets.token_urlsafe(32)
+        db.commit()
+        
+        logger.info(f"User auto-verified: {phone_number}")
+        return True
+    
+    finally:
+        db.close()
 
 @activity.defn
 async def update_user_pin(phone_number: str, pin_hash: str) -> bool:
-    """Update user's PIN hash"""
+    """Update user's PIN hash (Argon2 hashed)"""
     db = SessionLocal()
     try:
         user = db.query(User).filter(User.whatsapp_number == phone_number).first()
@@ -151,6 +180,7 @@ async def update_user_pin(phone_number: str, pin_hash: str) -> bool:
             logger.error(f"User not found: {phone_number}")
             return False
         
+        # Store the Argon2 hash
         user.pin_hash = pin_hash
         db.commit()
         

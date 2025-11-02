@@ -76,7 +76,6 @@ Your wallet is ready! Here's what you can do:
 💸 Send money: "Send $20 to John"
 💰 Check balance: "Balance" or "How much do I have?"
 📊 View history: "Show transactions"
-⚙️ Settings: "Settings"
 
 Need help? Just type "Help"
         """

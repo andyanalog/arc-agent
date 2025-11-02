@@ -152,16 +152,20 @@ async def verify_code_workflow(
         
 @app.post("/api/workflow/set-pin")
 async def set_pin_workflow(
-    request: SetPinRequest,
-    api_key: str = Depends(verify_api_key)
+    request: SetPinRequest
 ):
     """Send PIN setup signal to registration workflow"""
     try:
+        from utils.security import hash_pin
+        
+        # Hash the client-provided hash with Argon2 (double hashing for security)
+        final_hash = hash_pin(request.pin_hash)
+        
         client = await get_temporal_client()
         handle = client.get_workflow_handle(request.workflow_id)
         
         await handle.signal("set_pin", {
-            "pin_hash": request.pin_hash,
+            "pin_hash": final_hash,
             "token": request.token
         })
         
@@ -178,7 +182,7 @@ async def set_pin_workflow(
             "success": False,
             "error": str(e),
             "message": "Failed to set PIN.",
-        }        
+        }      
         
 @app.post("/api/payment/send")
 async def send_money(

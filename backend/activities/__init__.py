@@ -7,4 +7,5 @@ __all__ = [
     'twilio_activities',
     'database_activities',
     'circle_activities',
+    'pin_activities',
 ]
