@@ -10,7 +10,7 @@ binding = "AI"
 # Environment variables
 [vars]
 BACKEND_API_URL = "http://localhost:8000"
-BACKEND_API_KEY = "77b4c85e737e62b2548320afc317ea031c32be3f22ee5e79113b91ef3d8fa05e"
+BACKEND_API_KEY = ""
 # Route configuration for production
 # [[routes]]
 # pattern = "arcagent.example.com/*"
