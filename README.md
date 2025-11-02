@@ -123,8 +123,7 @@ User Flow
 Registration Flow
 
 User sends: Hi or Register
-Bot sends 6-digit verification code
-User verifies code (auto-detected or via /api/verify-code)
+Bot sends 6-digit verification code and it gets auto-detected
 Bot sends PIN setup link
 User sets PIN via secure web portal
 Bot creates Circle wallet
@@ -137,4 +136,11 @@ Bot parses intent and checks balance
 Bot requests confirmation: CONFIRM or CANCEL
 User replies: CONFIRM
 Bot executes transfer via Circle/Arc
+<<<<<<< HEAD
 Bot sends transaction receipt
+=======
+Bot sends transaction receipt
+```
+
+-----------------------------------------------------------------------------------
+>>>>>>> 82c3e79 (hardcoded values cleanup)
