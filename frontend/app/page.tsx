@@ -239,9 +239,9 @@ export default function Home() {
 
           <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
             {[
-              { name: "Engineering Lead", role: "Backend & Workflows" },
+              { name: "Software Developer", role: "Backend & Workflows" },
               { name: "Product Designer", role: "UX & Interface" },
-              { name: "Security Lead", role: "Cryptography & Auth" }
+              { name: "Software Developer ", role: "AI Integration" }
             ].map((member) => (
               <div key={member.name} className="relative group">
                 <div className="absolute inset-0 bg-linear-to-br from-purple-500/20 to-pink-500/20 rounded-2xl blur-xl group-hover:blur-2xl transition" />
