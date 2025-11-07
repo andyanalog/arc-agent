@@ -67,39 +67,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* How It Works */}
-      <section id="how-it-works" className="py-20 px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-sm font-semibold text-purple-400 mb-2 uppercase tracking-wider">
-              HOW IT WORKS
-            </h2>
-            <p className="text-4xl md:text-5xl font-bold">
-              4 steps to get started
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              { num: "01", title: "Register", desc: "Send 'Hi' to start registration", icon: MessageSquare },
-              { num: "02", title: "Verify", desc: "Enter verification code", icon: Shield },
-              { num: "03", title: "Setup PIN", desc: "Secure your wallet", icon: Settings },
-              { num: "04", title: "Start Paying", desc: "Send money instantly", icon: Send }
-            ].map((step) => (
-              <div key={step.num} className="relative group">
-                <div className="absolute inset-0 bg-linear-to-br from-purple-500/20 to-pink-500/20 rounded-2xl blur-xl group-hover:blur-2xl transition opacity-0 group-hover:opacity-100" />
-                <div className="relative p-8 border border-white/10 rounded-2xl bg-black hover:border-purple-500/50 transition">
-                  <step.icon className="w-8 h-8 text-purple-400 mb-4" />
-                  <div className="text-5xl font-bold text-white/18 mb-2">{step.num}</div>
-                  <h3 className="text-xl font-semibold mb-2">{step.title}</h3>
-                  <p className="text-gray-400 text-sm">{step.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Features Grid */}
       <section id="features" className="py-20 px-6">
         <div className="max-w-7xl mx-auto">
@@ -166,6 +133,39 @@ export default function Home() {
         </div>
       </section>
 
+      {/* How It Works */}
+      <section id="how-it-works" className="py-20 px-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-sm font-semibold text-purple-400 mb-2 uppercase tracking-wider">
+              HOW IT WORKS
+            </h2>
+            <p className="text-4xl md:text-5xl font-bold">
+              4 steps to get started
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              { num: "01", title: "Register", desc: "Send 'Hi' to start registration", icon: MessageSquare },
+              { num: "02", title: "Verify", desc: "Enter verification code", icon: Shield },
+              { num: "03", title: "Setup PIN", desc: "Secure your wallet", icon: Settings },
+              { num: "04", title: "Start Paying", desc: "Send money instantly", icon: Send }
+            ].map((step) => (
+              <div key={step.num} className="relative group">
+                <div className="absolute inset-0 bg-linear-to-br from-purple-500/20 to-pink-500/20 rounded-2xl blur-xl group-hover:blur-2xl transition opacity-0 group-hover:opacity-100" />
+                <div className="relative p-8 border border-white/10 rounded-2xl bg-black hover:border-purple-500/50 transition">
+                  <step.icon className="w-8 h-8 text-purple-400 mb-4" />
+                  <div className="text-5xl font-bold text-white/18 mb-2">{step.num}</div>
+                  <h3 className="text-xl font-semibold mb-2">{step.title}</h3>
+                  <p className="text-gray-400 text-sm">{step.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Screenshots Section */}
       <section className="py-20 px-6">
         <div className="max-w-7xl mx-auto">
@@ -187,6 +187,37 @@ export default function Home() {
                     <MessageSquare className="w-16 h-16 text-gray-700" />
                   </div>
                   <p className="text-center mt-4 text-sm text-gray-400">{caption}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Team Section */}
+      <section id="team" className="py-20 px-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-sm font-semibold text-purple-400 mb-2 uppercase tracking-wider">
+              TEAM
+            </h2>
+            <p className="text-4xl md:text-5xl font-bold">
+              Built by innovators
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+            {[
+              { name: "Software Developer", role: "Backend & Workflows" },
+              { name: "Product Designer", role: "UX & Interface" },
+              { name: "Software Developer ", role: "AI Integration" }
+            ].map((member) => (
+              <div key={member.name} className="relative group">
+                <div className="absolute inset-0 bg-linear-to-br from-purple-500/20 to-pink-500/20 rounded-2xl blur-xl group-hover:blur-2xl transition" />
+                <div className="relative p-6 border border-white/10 rounded-2xl bg-black hover:border-purple-500/50 transition text-center">
+                  <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-linear-to-br from-purple-500 to-pink-500" />
+                  <h3 className="text-lg font-semibold mb-1">{member.name}</h3>
+                  <p className="text-gray-400 text-sm">{member.role}</p>
                 </div>
               </div>
             ))}
@@ -220,37 +251,6 @@ export default function Home() {
                   {item.a}
                 </div>
               </details>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Team Section */}
-      <section id="team" className="py-20 px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-sm font-semibold text-purple-400 mb-2 uppercase tracking-wider">
-              TEAM
-            </h2>
-            <p className="text-4xl md:text-5xl font-bold">
-              Built by innovators
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            {[
-              { name: "Software Developer", role: "Backend & Workflows" },
-              { name: "Product Designer", role: "UX & Interface" },
-              { name: "Software Developer ", role: "AI Integration" }
-            ].map((member) => (
-              <div key={member.name} className="relative group">
-                <div className="absolute inset-0 bg-linear-to-br from-purple-500/20 to-pink-500/20 rounded-2xl blur-xl group-hover:blur-2xl transition" />
-                <div className="relative p-6 border border-white/10 rounded-2xl bg-black hover:border-purple-500/50 transition text-center">
-                  <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-linear-to-br from-purple-500 to-pink-500" />
-                  <h3 className="text-lg font-semibold mb-1">{member.name}</h3>
-                  <p className="text-gray-400 text-sm">{member.role}</p>
-                </div>
-              </div>
             ))}
           </div>
         </div>
