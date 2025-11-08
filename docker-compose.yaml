@@ -65,10 +65,17 @@ services:
     environment:
       - DATABASE_URL=postgresql://arcagent:arcagent_dev_password@postgres:5432/arcagent
       - TEMPORAL_HOST=temporal:7233
-      - TWILIO_ACCOUNT_SID=your_twilio_account_sid
-      - TWILIO_AUTH_TOKEN=your_twilio_auth_token
-      - TWILIO_WHATSAPP_NUMBER=whatsapp:your_twilio_number
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_WHATSAPP_NUMBER=${TWILIO_WHATSAPP_NUMBER}
       - ENVIRONMENT=development
+      - BACKEND_API_KEY=${BACKEND_API_KEY}
+      - CLOUDFLARE_WORKER_URL=${CLOUDFLARE_WORKER_URL}
+      - CIRCLE_API_KEY=${CIRCLE_API_KEY}
+      - CIRCLE_ENTITY_SECRET=${CIRCLE_ENTITY_SECRET}
+      - CIRCLE_USDC_TOKEN_ID=${CIRCLE_USDC_TOKEN_ID}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      - ELEVENLABS_VOICE_ID=${ELEVENLABS_VOICE_ID}
     ports:
       - "8000:8000"
     volumes:
@@ -90,9 +97,16 @@ services:
     environment:
       - DATABASE_URL=postgresql://arcagent:arcagent_dev_password@postgres:5432/arcagent
       - TEMPORAL_HOST=temporal:7233
-      - TWILIO_ACCOUNT_SID=your_twilio_account_sid
-      - TWILIO_AUTH_TOKEN=your_twilio_auth_token
-      - TWILIO_WHATSAPP_NUMBER=whatsapp:+your_twilio_number
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_WHATSAPP_NUMBER=${TWILIO_WHATSAPP_NUMBER}
+      - BACKEND_API_KEY=${BACKEND_API_KEY}
+      - CLOUDFLARE_WORKER_URL=${CLOUDFLARE_WORKER_URL}
+      - CIRCLE_API_KEY=${CIRCLE_API_KEY}
+      - CIRCLE_ENTITY_SECRET=${CIRCLE_ENTITY_SECRET}
+      - CIRCLE_USDC_TOKEN_ID=${CIRCLE_USDC_TOKEN_ID}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      - ELEVENLABS_VOICE_ID=${ELEVENLABS_VOICE_ID}
     volumes:
       - ./backend:/app
     networks:

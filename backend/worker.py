@@ -6,7 +6,7 @@ from temporalio.worker import Worker
 from config import settings
 from workflows.registration import RegistrationWorkflow
 from workflows.payment import PaymentWorkflow
-from activities import twilio_activities, database_activities, circle_activities
+from activities import twilio_activities, database_activities, circle_activities, pin_activities
 
 # Configure logging
 logging.basicConfig(
@@ -64,6 +64,7 @@ async def main():
             
             # Database activities
             database_activities.create_user,
+            database_activities.auto_verify_user,
             database_activities.verify_user_code,
             database_activities.get_user,
             database_activities.update_user_pin,
@@ -72,7 +73,10 @@ async def main():
             database_activities.create_transaction,
             database_activities.update_transaction_status,
             
-            # Circle activities (dummy for now)
+            # PIN activities
+            pin_activities.verify_user_pin,
+            
+            # Circle activities
             circle_activities.create_circle_wallet,
             circle_activities.get_wallet_balance,
             circle_activities.initiate_transfer,

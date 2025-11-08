@@ -50,10 +50,13 @@ async def send_pin_setup_link(phone_number: str, setup_token: str) -> str:
     """
     logger.info(f"Sending PIN setup link to {phone_number}")
     
-    # For now, dummy link (will be replaced with actual NextJS portal)
-    setup_url = f"https://arcagent.example.com/setup-pin?token={setup_token}"
+    # Clean phone number for URL (remove any special characters)
+    from urllib.parse import quote
+    clean_phone = phone_number.strip().replace(' ', '')
     
-    body = f"""🔒 Secure your ArcAgent wallet!
+    setup_url = f"http://localhost:8000/setup-pin?token={setup_token}&phone={quote(clean_phone)}"
+    
+    body = f"""🔒 Let's create your ArcAgent wallet
 
 Click the link below to set up your PIN:
 {setup_url}
