@@ -26,9 +26,19 @@ async def create_user(phone_number: str) -> Dict[str, Any]:
         existing_user = db.query(User).filter(User.whatsapp_number == phone_number).first()
         if existing_user:
             logger.info(f"User already exists: {phone_number}")
+            # Generate new verification code for existing incomplete registrations
+            if not existing_user.registration_completed:
+                verification_code = ''.join([str(secrets.randbelow(10)) for _ in range(6)])
+                existing_user.verification_code = verification_code
+                existing_user.verification_code_expires = datetime.utcnow() + timedelta(minutes=10)
+                db.commit()
+            else:
+                verification_code = None
+            
             return {
                 "id": existing_user.id,
                 "phone_number": existing_user.whatsapp_number,
+                "verification_code": verification_code,
                 "is_verified": existing_user.is_verified,
                 "registration_completed": existing_user.registration_completed
             }
@@ -129,10 +139,39 @@ async def get_user(phone_number: str) -> Optional[Dict[str, Any]]:
     finally:
         db.close()
 
+@activity.defn
+async def auto_verify_user(phone_number: str) -> bool:
+    """
+    Auto-verify user (skip manual code entry)
+    
+    Args:
+        phone_number: User's phone number
+    
+    Returns:
+        True if verified successfully
+    """
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.whatsapp_number == phone_number).first()
+        
+        if not user:
+            logger.warning(f"User not found: {phone_number}")
+            return False
+        
+        # Mark as verified and generate nonce
+        user.is_verified = True
+        user.nonce = secrets.token_urlsafe(32)
+        db.commit()
+        
+        logger.info(f"User auto-verified: {phone_number}")
+        return True
+    
+    finally:
+        db.close()
 
 @activity.defn
 async def update_user_pin(phone_number: str, pin_hash: str) -> bool:
-    """Update user's PIN hash"""
+    """Update user's PIN hash (Argon2 hashed)"""
     db = SessionLocal()
     try:
         user = db.query(User).filter(User.whatsapp_number == phone_number).first()
@@ -141,6 +180,7 @@ async def update_user_pin(phone_number: str, pin_hash: str) -> bool:
             logger.error(f"User not found: {phone_number}")
             return False
         
+        # Store the Argon2 hash
         user.pin_hash = pin_hash
         db.commit()
         

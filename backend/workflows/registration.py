@@ -18,19 +18,17 @@ class RegistrationWorkflow:
     
     Steps:
     1. Create user in database
-    2. Send verification code
-    3. Wait for code verification (via signal)
-    4. Generate PIN setup token
-    5. Send PIN setup link
-    6. Wait for PIN setup (via signal)
-    7. Create Circle wallet
-    8. Complete registration
-    9. Send welcome message
+    2. Auto-verify user (skip manual code entry)
+    3. Generate PIN setup token
+    4. Send PIN setup link
+    5. Wait for PIN setup (via signal)
+    6. Create Circle wallet
+    7. Complete registration
+    8. Send welcome message
     """
     
     def __init__(self):
         self.phone_number: str = ""
-        self.verification_code: str = ""
         self.code_verified: bool = False
         self.pin_setup_token: str = ""
         self.pin_set: bool = False
@@ -51,7 +49,7 @@ class RegistrationWorkflow:
         
         workflow.logger.info(f"Starting registration for {phone_number}")
         
-        # Step 1: Create user and get verification code
+        # Step 1: Create user
         user_data = await workflow.execute_activity(
             database_activities.create_user,
             phone_number,
@@ -59,37 +57,28 @@ class RegistrationWorkflow:
             retry_policy=RetryPolicy(maximum_attempts=3)
         )
         
-        self.verification_code = user_data["verification_code"]
-        
-        # Step 2: Send verification code
-        await workflow.execute_activity(
-            twilio_activities.send_verification_code,
-            args=[phone_number, self.verification_code],
-            start_to_close_timeout=timedelta(seconds=30),
-            retry_policy=RetryPolicy(maximum_attempts=3)
+        # Step 2: Auto-verify user (skip manual code entry)
+        verified = await workflow.execute_activity(
+            database_activities.auto_verify_user,
+            phone_number,
+            start_to_close_timeout=timedelta(seconds=10)
         )
         
-        # Step 3: Wait for verification (signal or timeout after 10 minutes)
-        workflow.logger.info(f"Waiting for verification code from {phone_number}")
-        
-        await workflow.wait_condition(
-            lambda: self.code_verified,
-            timeout=timedelta(minutes=10)
-        )
-        
-        if not self.code_verified:
-            workflow.logger.warning(f"Verification timeout for {phone_number}")
+        if not verified:
+            workflow.logger.error(f"Auto-verification failed for {phone_number}")
             await workflow.execute_activity(
                 twilio_activities.send_error_message,
                 args=[phone_number, "general"],
                 start_to_close_timeout=timedelta(seconds=30)
             )
-            return {"success": False, "error": "verification_timeout"}
+            return {"success": False, "error": "verification_failed"}
         
-        # Step 4: Generate PIN setup token (using workflow.uuid4 for determinism)
+        self.code_verified = True
+        
+        # Step 3: Generate PIN setup token (using workflow.uuid4 for determinism)
         self.pin_setup_token = str(workflow.uuid4())
         
-        # Step 5: Send PIN setup link
+        # Step 4: Send PIN setup link
         await workflow.execute_activity(
             twilio_activities.send_pin_setup_link,
             args=[phone_number, self.pin_setup_token],
@@ -97,7 +86,7 @@ class RegistrationWorkflow:
             retry_policy=RetryPolicy(maximum_attempts=3)
         )
         
-        # Step 6: Wait for PIN setup (signal or timeout after 15 minutes)
+        # Step 5: Wait for PIN setup (signal or timeout after 15 minutes)
         workflow.logger.info(f"Waiting for PIN setup from {phone_number}")
         
         await workflow.wait_condition(
@@ -114,7 +103,7 @@ class RegistrationWorkflow:
             )
             return {"success": False, "error": "pin_setup_timeout"}
         
-        # Step 7: Create Circle wallet
+        # Step 6: Create Circle wallet
         wallet_data = await workflow.execute_activity(
             circle_activities.create_circle_wallet,
             phone_number,
@@ -122,7 +111,7 @@ class RegistrationWorkflow:
             retry_policy=RetryPolicy(maximum_attempts=3)
         )
         
-        # Step 8: Update user with wallet info
+        # Step 7: Update user with wallet info
         await workflow.execute_activity(
             database_activities.update_user_wallet,
             args=[
@@ -136,7 +125,7 @@ class RegistrationWorkflow:
         
         self.wallet_created = True
         
-        # Step 9: Send welcome message
+        # Step 8: Send welcome message
         await workflow.execute_activity(
             twilio_activities.send_welcome_message,
             args=[phone_number, None],
@@ -152,23 +141,6 @@ class RegistrationWorkflow:
             "wallet_id": wallet_data["wallet_id"],
             "wallet_address": wallet_data["wallet_address"]
         }
-    
-    @workflow.signal
-    async def verify_code(self, code: str):
-        """Signal to verify code"""
-        workflow.logger.info(f"Received verification code: {code}")
-        
-        if code == self.verification_code:
-            # Verify in database
-            verified = await workflow.execute_activity(
-                database_activities.verify_user_code,
-                args=[self.phone_number, code],
-                start_to_close_timeout=timedelta(seconds=10)
-            )
-            
-            if verified:
-                self.code_verified = True
-                workflow.logger.info(f"Code verified for {self.phone_number}")
     
     @workflow.signal
     async def set_pin(self, args: dict):

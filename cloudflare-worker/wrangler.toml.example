@@ -1,0 +1,17 @@
+name = "arcagent-ai-worker"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+workers_dev = true
+
+# Bind the Workers AI model
+[ai]
+binding = "AI"
+
+# Environment variables
+[vars]
+BACKEND_API_URL = "http://localhost:8000"
+BACKEND_API_KEY = ""
+# Route configuration for production
+# [[routes]]
+# pattern = "arcagent.example.com/*"
+# zone_name = "example.com"
