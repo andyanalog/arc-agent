@@ -14,8 +14,8 @@ export default function SeeItInAction() {
   const [showVideo, setShowVideo] = useState(false);
 
   const screenshots: Screenshot[] = [
-    { src: "/images/whatsapp4.jpg", caption: "Pay friends & family" },
-    { src: "/images/whatsapp5.jpg", caption: "Sender's conversation view" },
+    { src: "/images/whatsapp4.jpg", caption: "Registration step" },
+    { src: "/images/whatsapp5.jpg", caption: "Wallet information" },
     { src: "/images/whatsapp6.jpg", caption: "Recipient's notification" },
   ];
 
