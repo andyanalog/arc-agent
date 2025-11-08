@@ -9,44 +9,45 @@ arcagent/
 ├── backend/
 │   ├── Dockerfile
 │   ├── requirements.txt
-│   ├── main.py                 # FastAPI app with Twilio webhooks
-│   ├── worker.py               # Temporal worker
-│   ├── config.py               # Configuration management
+│   ├── main.py                
+│   ├── worker.py             
+│   ├── config.py               
+│   ├── circle_config.py
 │   │
 │   ├── api/
 │   │   ├── __init__.py
-│   │   ├── webhooks.py         # Twilio webhook endpoints
-│   │   └── health.py           # Health check endpoints
+│   │   ├── endpoints.py         
+│   │   └── dependencies.py           
 │   │
 │   ├── workflows/
 │   │   ├── __init__.py
-│   │   ├── registration.py     # User registration workflow
-│   │   ├── payment.py          # Payment execution workflow
-│   │   └── verification.py     # PIN verification workflow
+│   │   ├── registration.py    
+│   │   └── payment.py         
+│   │ 
 │   │
 │   ├── activities/
 │   │   ├── __init__.py
-│   │   ├── twilio_activities.py    # Send messages, verify
-│   │   ├── database_activities.py  # User CRUD operations
-│   │   ├── circle_activities.py    # Circle wallet operations (dummy)
-│   │   └── arc_activities.py       # Arc blockchain operations (dummy)
+│   │   ├── twilio_activities.py    
+│   │   ├── database_activities.py  
+│   │   ├── circle_activities.py    
+│   │   └── pin_activities.py       
 │   │
 │   ├── models/
 │   │   ├── __init__.py
-│   │   ├── database.py         # SQLAlchemy models
-│   │   └── schemas.py          # Pydantic schemas
+│   │   └── database.py         
+│   │   
 │   │
 │   ├── services/
 │   │   ├── __init__.py
-│   │   ├── twilio_service.py   # Twilio client wrapper
-│   │   ├── message_parser.py   # Parse user intents from messages
-│   │   └── security.py         # PIN hashing, nonce generation
+│   │   ├── twilio_service.py   
+│   │   ├── elevenlabs_service.py  
+│   │   └── circle_service.py         
 │   │
 │   └── utils/
 │       ├── __init__.py
-│       └── logger.py           # Logging configuration
+│       └── security.py           
 │
-├── frontend/                        # NextJS
+├── frontend/                        
 │    ├──app/
 │    ├──public/
 │    └──package.json
@@ -84,7 +85,7 @@ User (WhatsApp)
     ↓
 Twilio 
     ↓
-FastAPI Webhook 
+FastAPI 
     ↓
 Temporal Workflow 
     ↓
