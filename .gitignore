@@ -5,6 +5,7 @@ node_modules
 package-lock.json
 .vscode
 .wrangler
+.wrangler/tmp
 wrangler.toml
 node_modules
 package-lock.json
