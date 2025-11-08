@@ -16,7 +16,7 @@ export default function SeeItInAction() {
   const screenshots: Screenshot[] = [
     { src: "/images/whatsapp4.jpg", caption: "Registration step" },
     { src: "/images/whatsapp5.jpg", caption: "Wallet information" },
-    { src: "/images/whatsapp6.jpg", caption: "Succesfull transaction notification" },
+    { src: "/images/whatsapp6.jpg", caption: "Succesful transaction notification" },
   ];
 
   const videoDemo = "/videos/demo.mp4";
