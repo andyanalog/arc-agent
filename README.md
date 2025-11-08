@@ -46,8 +46,15 @@ arcagent/
 │       ├── __init__.py
 │       └── logger.py           # Logging configuration
 │
-└── web/                        # NextJS PIN setup portal (Phase 2)
-    └── (to be created later)
+├── frontend/                        # NextJS
+│    ├──app/
+│    ├──public/
+│    └──package.json
+│
+└── cloudflare-worker
+    ├──src/
+    ├──package.json
+    └──wrangler.toml
 ```
 
 Key Components
