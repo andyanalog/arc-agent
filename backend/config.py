@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     PIN_SALT: str = "arcagent-dev-salt-change-in-production"
     SESSION_SECRET: str = "dev-secret-key-change-in-production"
     BACKEND_API_KEY: str = "dev-api-key-change-in-production"
+    BACKEND_PUBLIC_URL: str = "https://124323597a66.ngrok-free.app"
+    
+    # ElevenLabs
+    ELEVENLABS_API_KEY: str = ""
+    ELEVENLABS_VOICE_ID: str = "21m00Tcm4TlvDq8ikWAM"  # Default voice (Rachel)
     
     # Circle
     CIRCLE_API_KEY: str

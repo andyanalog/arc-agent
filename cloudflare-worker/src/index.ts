@@ -16,6 +16,34 @@ app.use('/*', cors());
 // In production, use KV storage or database
 const userContext = new Map<string, { lastWorkflowId?: string; lastWorkflowType?: string }>();
 
+// Helper function to run AI with retry logic
+async function runAIWithRetry(
+	ai: Ai,
+	params: any,
+	maxRetries: number = 3,
+	delayMs: number = 1000
+): Promise<AiTextGenerationOutput> {
+	let lastError;
+	
+	for (let attempt = 0; attempt < maxRetries; attempt++) {
+		try {
+			const result = await ai.run('@cf/meta/llama-3.1-8b-instruct', params);
+			return result;
+		} catch (error: any) {
+			lastError = error;
+			console.error(`AI request failed (attempt ${attempt + 1}/${maxRetries}):`, error.message);
+			
+			// If not the last attempt, wait before retrying
+			if (attempt < maxRetries - 1) {
+				await new Promise(resolve => setTimeout(resolve, delayMs * (attempt + 1)));
+			}
+		}
+	}
+	
+	// If all retries failed, throw the last error
+	throw lastError;
+}
+
 // Tool implementations - these call your FastAPI backend
 async function registerUser(env: Env, phoneNumber: string) {
 	console.log('Calling backend:', `${env.BACKEND_API_URL}/api/register`);
@@ -123,6 +151,9 @@ app.post('/webhook/whatsapp', async (c) => {
 		const from = formData.get('From') as string;
 		const body = formData.get('Body') as string;
 		const messageSid = formData.get('MessageSid') as string;
+		const numMedia = parseInt((formData.get('NumMedia') as string) || '0');
+		const mediaUrl = numMedia > 0 ? (formData.get('MediaUrl0') as string) : null;
+		const mediaContentType = numMedia > 0 ? (formData.get('MediaContentType0') as string) : null;
 
 		// Extract phone number without whatsapp: prefix
 		const phoneNumber = from.replace('whatsapp:', '');
@@ -131,7 +162,79 @@ app.post('/webhook/whatsapp', async (c) => {
 			from: phoneNumber,
 			message: body,
 			messageSid,
+			hasAudio: numMedia > 0 && mediaContentType?.includes('audio'),
 		});
+
+		// Handle audio message
+		let messageText = body;
+		let isAudioInput = false;
+		
+		if (numMedia > 0 && mediaContentType?.includes('audio') && mediaUrl) {
+			// Transcribe audio using backend
+			try {
+				const transcribeResponse = await fetch(`${c.env.BACKEND_API_URL}/api/transcribe-audio`, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-API-Key': c.env.BACKEND_API_KEY,
+					},
+					body: JSON.stringify({
+						audio_url: mediaUrl,
+					}),
+				});
+
+				const transcribeResult = await transcribeResponse.json();
+				
+				if (transcribeResult.success && transcribeResult.text) {
+					messageText = transcribeResult.text;
+					isAudioInput = true;
+					console.log('Transcribed audio:', messageText);
+				} else {
+					// Fallback - send error message and return
+					console.error('Transcription failed:', transcribeResult.error);
+					
+					await fetch(`${c.env.BACKEND_API_URL}/api/send-message`, {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+							'X-API-Key': c.env.BACKEND_API_KEY,
+						},
+						body: JSON.stringify({
+							to: phoneNumber,
+							message: "Sorry, I couldn't process your audio message. Please try again or send a text message.",
+						}),
+					});
+					
+					return c.text('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200, {
+						'Content-Type': 'text/xml',
+					});
+				}
+			} catch (error) {
+				console.error('Transcription error:', error);
+				await fetch(`${c.env.BACKEND_API_URL}/api/send-message`, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-API-Key': c.env.BACKEND_API_KEY,
+					},
+					body: JSON.stringify({
+						to: phoneNumber,
+						message: "Sorry, I couldn't process your audio message. Please try again or send a text message.",
+					}),
+				});
+				
+				return c.text('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200, {
+					'Content-Type': 'text/xml',
+				});
+			}
+		}
+		
+		// Skip processing if no message text
+		if (!messageText || messageText.trim() === '') {
+			return c.text('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200, {
+				'Content-Type': 'text/xml',
+			});
+		}
 
 		// Get user context
 		let context = userContext.get(phoneNumber) || {};
@@ -165,7 +268,7 @@ Be helpful and concise. Don't explain your tool calls to the user.`,
 			},
 			{
 				role: 'user',
-				content: body,
+				content: messageText,
 			},
 		];
 
@@ -269,11 +372,33 @@ Be helpful and concise. Don't explain your tool calls to the user.`,
 			},
 		];
 
-		// Run AI with tools
-		let result: AiTextGenerationOutput = await c.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
-			messages,
-			tools,
-		});
+		// Run AI with tools and retry logic
+		let result: AiTextGenerationOutput;
+		try {
+			result = await runAIWithRetry(c.env.AI, {
+				messages,
+				tools,
+			});
+		} catch (error: any) {
+			console.error('AI model failed after retries:', error.message);
+			
+			// Send error message to user
+			await fetch(`${c.env.BACKEND_API_URL}/api/send-message`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'X-API-Key': c.env.BACKEND_API_KEY,
+				},
+				body: JSON.stringify({
+					to: phoneNumber,
+					message: "Sorry, I'm experiencing technical difficulties. Please try again in a moment.",
+				}),
+			});
+			
+			return c.text('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200, {
+				'Content-Type': 'text/xml',
+			});
+		}
 
 		// Process tool calls - only process ONCE
 		if (result.tool_calls && result.tool_calls.length > 0) {
@@ -390,27 +515,98 @@ Be helpful and concise. Don't explain your tool calls to the user.`,
 				content: JSON.stringify(fnResponse),
 			});
 
-			// Get AI response with tool result
-			result = await c.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
-				messages,
-			});
+			// Get AI response with tool result (with retry)
+			try {
+				result = await runAIWithRetry(c.env.AI, {
+					messages,
+				});
+			} catch (error: any) {
+				console.error('AI model failed after retries on second call:', error.message);
+				
+				// Send error message to user
+				await fetch(`${c.env.BACKEND_API_URL}/api/send-message`, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-API-Key': c.env.BACKEND_API_KEY,
+					},
+					body: JSON.stringify({
+						to: phoneNumber,
+						message: "Sorry, I'm experiencing technical difficulties. Please try again in a moment.",
+					}),
+				});
+				
+				return c.text('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200, {
+					'Content-Type': 'text/xml',
+				});
+			}
 		}
 
 		// Get final assistant message
 		let responseText = result.response || 'I encountered an issue processing your request.';
 
-		// Send response back to user via Twilio
-		await fetch(`${c.env.BACKEND_API_URL}/api/send-message`, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				'X-API-Key': c.env.BACKEND_API_KEY,
-			},
-			body: JSON.stringify({
-				to: phoneNumber,
-				message: responseText,
-			}),
-		});
+		// Send response back to user
+		if (isAudioInput) {
+			// Generate and send audio response
+			try {
+				const ttsResponse = await fetch(`${c.env.BACKEND_API_URL}/api/generate-speech`, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-API-Key': c.env.BACKEND_API_KEY,
+					},
+					body: JSON.stringify({
+						text: responseText,
+						to: phoneNumber,
+					}),
+				});
+
+				const ttsResult = await ttsResponse.json();
+				
+				if (!ttsResult.success) {
+					console.error('TTS failed, sending text instead:', ttsResult.error);
+					// Fallback to text message
+					await fetch(`${c.env.BACKEND_API_URL}/api/send-message`, {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+							'X-API-Key': c.env.BACKEND_API_KEY,
+						},
+						body: JSON.stringify({
+							to: phoneNumber,
+							message: responseText,
+						}),
+					});
+				}
+			} catch (error) {
+				console.error('TTS error, sending text instead:', error);
+				// Fallback to text message
+				await fetch(`${c.env.BACKEND_API_URL}/api/send-message`, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-API-Key': c.env.BACKEND_API_KEY,
+					},
+					body: JSON.stringify({
+						to: phoneNumber,
+						message: responseText,
+					}),
+				});
+			}
+		} else {
+			// Send text response
+			await fetch(`${c.env.BACKEND_API_URL}/api/send-message`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'X-API-Key': c.env.BACKEND_API_KEY,
+				},
+				body: JSON.stringify({
+					to: phoneNumber,
+					message: responseText,
+				}),
+			});
+		}
 
 		// Return TwiML response (empty since we're sending via API)
 		return c.text('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', 200, {

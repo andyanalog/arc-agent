@@ -6,17 +6,22 @@ from typing import Optional, List, Dict, Any
 from temporalio.client import Client
 from datetime import datetime
 import logging
+import base64
 
 from config import settings
 from models.database import init_db, get_db, User, Transaction
 from workflows import RegistrationWorkflow, PaymentWorkflow
 from services import twilio_service, circle_service
+from services.elevenlabs_service import elevenlabs_service
 from sqlalchemy.orm import Session
+from fastapi.staticfiles import StaticFiles
 
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="ArcAgent API")
-
+static_dir = Path("/app/static")
+static_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 # Initialize database on startup
 @app.on_event("startup")
 async def startup_event():
@@ -62,6 +67,15 @@ class WorkflowActionRequest(BaseModel):
 class SendMessageRequest(BaseModel):
     to: str
     message: str
+
+
+class TranscribeAudioRequest(BaseModel):
+    audio_url: str
+
+
+class GenerateSpeechRequest(BaseModel):
+    text: str
+    to: str
 
 
 # Helper to get Temporal client
@@ -428,6 +442,68 @@ async def send_message(
         
     except Exception as e:
         logger.error(f"Send message error: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+
+@app.post("/api/transcribe-audio")
+async def transcribe_audio(
+    request: TranscribeAudioRequest,
+    api_key: str = Depends(verify_api_key)
+):
+    """Transcribe audio using Eleven Labs STT"""
+    try:
+        transcribed_text = elevenlabs_service.transcribe_audio(request.audio_url)
+        
+        if transcribed_text:
+            return {
+                "success": True,
+                "text": transcribed_text,
+            }
+        else:
+            return {
+                "success": False,
+                "error": "Failed to transcribe audio",
+            }
+        
+    except Exception as e:
+        logger.error(f"Transcribe audio error: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+
+@app.post("/api/generate-speech")
+async def generate_speech(
+    request: GenerateSpeechRequest,
+    api_key: str = Depends(verify_api_key)
+):
+    """Generate speech using Eleven Labs TTS and send via WhatsApp"""
+    try:
+        audio_data = elevenlabs_service.generate_speech(request.text)
+        
+        if not audio_data:
+            return {
+                "success": False,
+                "error": "Failed to generate speech",
+            }
+        
+        # Send audio message via Twilio (handles upload internally)
+        message_sid = twilio_service.send_audio_message(
+            to=request.to if request.to.startswith('whatsapp:') else f'whatsapp:{request.to}',
+            audio_data=audio_data
+        )
+        
+        return {
+            "success": True,
+            "message_sid": message_sid,
+        }
+        
+    except Exception as e:
+        logger.error(f"Generate speech error: {str(e)}")
         return {
             "success": False,
             "error": str(e),

@@ -1,8 +1,26 @@
+"use client";
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { MessageSquare, Send, Shield, Clock, Users, Receipt, Settings, Mic } from "lucide-react";
+import { MessageSquare, Send, Shield, Clock, Users, Receipt, Settings, Mic, CodeIcon, Brush, Brain, Code, ChevronRight, ChevronLeft } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
-export default function Home() {
+interface Screenshot {
+  src: string;
+  caption: string;
+}
+
+export default function SeeItInAction() {
+  const [showVideo, setShowVideo] = useState(false);
+
+  const screenshots: Screenshot[] = [
+    { src: "/images/whatsapp4.jpg", caption: "Pay friends & family" },
+    { src: "/images/whatsapp5.jpg", caption: "Sender's conversation view" },
+    { src: "/images/whatsapp6.jpg", caption: "Recipient's notification" },
+  ];
+
+  const videoDemo = "/videos/demo.mp4";
+
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Navigation */}
@@ -25,9 +43,16 @@ export default function Home() {
               FAQ
             </Link>
           </div>
-          <button className="px-4 py-2 bg-white text-black rounded-lg text-sm font-medium hover:bg-gray-100 transition">
-            Get Started
-          </button>
+          <a
+            href="https://github.com/andyanalog/arc-agent"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2 bg-white text-black rounded-lg text-sm font-medium hover:bg-gray-100 transition flex items-center gap-2"
+          >
+            <CodeIcon className="w-5 h-5" />
+            GitHub Repository
+          </a>
+
         </div>
       </nav>
 
@@ -52,13 +77,14 @@ export default function Home() {
           </p>
 
           <div className="flex items-center justify-center gap-4">
-            <button className="px-8 py-4 bg-white text-black rounded-lg font-medium hover:bg-gray-100 transition flex items-center gap-2">
-              <MessageSquare className="w-5 h-5" />
-              Start Chatting
-            </button>
-            <button className="px-8 py-4 border border-white/10 rounded-lg font-medium hover:bg-white/5 transition">
-              View Demo
-            </button>
+            <a
+                  href="https://lablab.ai/event/ai-agents-arc-usdc/kel?channelId=1432495900198174840"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-8 py-4 bg-white text-black rounded-lg font-medium hover:bg-gray-100 transition inline-flex items-center gap-2"
+                >
+                  Request a Demo
+                </a>
           </div>
 
           {/* Animated gradient orbs */}
@@ -113,7 +139,7 @@ export default function Home() {
               },
               { 
                 title: "Voice Payments", 
-                desc: "Optional voice commands with 11 Labs",
+                desc: "Optional voice commands with Eleven Labs",
                 icon: Mic,
                 gradient: "from-pink-500 to-purple-500"
               }
@@ -167,63 +193,142 @@ export default function Home() {
       </section>
 
       {/* Screenshots Section */}
-      <section className="py-20 px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-sm font-semibold text-purple-400 mb-2 uppercase tracking-wider">
-              SEE IT IN ACTION
-            </h2>
-            <p className="text-4xl md:text-5xl font-bold">
-              Chat-based payments
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-6">
-            {["Pay friends & family", "Sender's conversation view", "Recipient's notification"].map((caption) => (
-              <div key={caption} className="relative group">
-                <div className="absolute inset-0 bg-linear-to-br from-purple-500/20 to-pink-500/20 rounded-2xl blur-xl group-hover:blur-2xl transition" />
-                <div className="relative border border-white/10 rounded-2xl bg-linear-to-b from-white/5 to-black p-4 hover:border-purple-500/50 transition">
-                  <div className="aspect-9/16 bg-linear-to-b from-gray-900 to-black rounded-xl border border-white/10 flex items-center justify-center">
-                    <MessageSquare className="w-16 h-16 text-gray-700" />
-                  </div>
-                  <p className="text-center mt-4 text-sm text-gray-400">{caption}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+      <section className="py-20 px-6 overflow-hidden">
+      <div className="max-w-7xl mx-auto">
+        <div className="text-center mb-16">
+          <h2 className="text-sm font-semibold text-purple-400 mb-2 uppercase tracking-wider">
+            SEE IT IN ACTION
+          </h2>
+          <p className="text-4xl md:text-5xl font-bold">Chat-based payments</p>
         </div>
-      </section>
+
+        <div className="relative flex justify-center">
+          <AnimatePresence mode="wait">
+            {!showVideo ? (
+              <motion.div
+                key="images"
+                initial={{ opacity: 0, x: -50 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 50 }}
+                transition={{ duration: 0.6, ease: "easeInOut" }}
+                className="grid md:grid-cols-3 gap-6"
+              >
+                {screenshots.map((item) => (
+                  <div key={item.caption} className="relative group">
+                    <div className="absolute inset-0 bg-linear-to-br from-purple-500/20 to-pink-500/20 rounded-2xl blur-xl group-hover:blur-2xl transition" />
+                    <div className="relative border border-white/10 rounded-2xl bg-linear-to-b from-white/5 to-black p-4 hover:border-purple-500/50 transition">
+                      <Image
+                        src={item.src}
+                        alt={item.caption}
+                        width={400}
+                        height={800}
+                        className="rounded-xl border border-white/10 object-cover w-full h-auto"
+                      />
+                      <p className="text-center mt-4 text-sm text-gray-400">
+                        {item.caption}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </motion.div>
+            ) : (
+              <motion.div
+                key="video"
+                initial={{ opacity: 0, x: 50 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -50 }}
+                transition={{ duration: 0.6, ease: "easeInOut" }}
+                className="grid md:grid-cols-3 gap-6"
+              >
+                <div className="hidden md:block" />
+
+                <div className="relative group">
+                  <div className="absolute inset-0 bg-linear-to-br from-purple-500/20 to-pink-500/20 rounded-2xl blur-xl group-hover:blur-2xl transition" />
+                  <div className="relative border border-white/10 rounded-2xl bg-linear-to-b from-white/5 to-black p-4 hover:border-purple-500/50 transition">
+                    <video
+                      src={videoDemo}
+                      controls
+                      autoPlay
+                      playsInline
+                      loop
+                      className="rounded-xl border border-white/10 object-cover w-full h-auto"
+                    />
+                    <p className="text-center mt-4 text-sm text-gray-400">
+                      Product demo in action
+                    </p>
+                  </div>
+                </div>
+
+                <div className="hidden md:block" />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Left Arrow (shows only when video is active) */}
+          {showVideo && (
+            <button
+              onClick={() => setShowVideo(false)}
+              className="absolute left-0 top-1/2 -translate-y-1/2 bg-purple-500 hover:bg-purple-600 text-white rounded-full p-3 shadow-lg transition"
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+          )}
+
+          {/* Right Arrow (shows only when screenshots are visible) */}
+          {!showVideo && (
+            <button
+              onClick={() => setShowVideo(true)}
+              className="absolute right-0 top-1/2 -translate-y-1/2 bg-purple-500 hover:bg-purple-600 text-white rounded-full p-3 shadow-lg transition"
+            >
+              <ChevronRight className="w-6 h-6" />
+            </button>
+          )}
+        </div>
+      </div>
+    </section>
 
       {/* Team Section */}
       <section id="team" className="py-20 px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-sm font-semibold text-purple-400 mb-2 uppercase tracking-wider">
-              TEAM
-            </h2>
-            <p className="text-4xl md:text-5xl font-bold">
-              Built by innovators
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            {[
-              { name: "Software Developer", role: "Backend & Workflows" },
-              { name: "Product Designer", role: "UX & Interface" },
-              { name: "Software Developer ", role: "AI Integration" }
-            ].map((member) => (
-              <div key={member.name} className="relative group">
-                <div className="absolute inset-0 bg-linear-to-br from-purple-500/20 to-pink-500/20 rounded-2xl blur-xl group-hover:blur-2xl transition" />
-                <div className="relative p-6 border border-white/10 rounded-2xl bg-black hover:border-purple-500/50 transition text-center">
-                  <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-linear-to-br from-purple-500 to-pink-500" />
-                  <h3 className="text-lg font-semibold mb-1">{member.name}</h3>
-                  <p className="text-gray-400 text-sm">{member.role}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+      <div className="max-w-7xl mx-auto">
+        <div className="text-center mb-16">
+          <h2 className="text-sm font-semibold text-purple-400 mb-2 uppercase tracking-wider">
+            TEAM
+          </h2>
+          <p className="text-4xl md:text-5xl font-bold">
+            Built by innovators
+          </p>
         </div>
-      </section>
+
+        <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+          {[
+            {
+              name: "Kikosem Igwubor",
+              role: "Backend & Workflows",
+              icon: <Code className="w-12 h-12 text-purple-400 group-hover:text-purple-300 transition" />,
+            },
+            {
+              name: "Emmanuel Raymond",
+              role: "UX & Interface",
+              icon: <Brush className="w-12 h-12 text-pink-400 group-hover:text-pink-300 transition" />,
+            },
+            {
+              name: "Andres Lozano",
+              role: "Software Dev / AI Integration",
+              icon: <Brain className="w-12 h-12 text-blue-400 group-hover:text-blue-300 transition" />,
+            },
+          ].map((member) => (
+            <div key={member.name} className="relative group">
+              <div className="absolute inset-0 bg-linear-to-br from-purple-500/20 to-pink-500/20 rounded-2xl blur-xl group-hover:blur-2xl transition" />
+              <div className="relative p-6 border border-white/10 rounded-2xl bg-black hover:border-purple-500/50 transition text-center">
+                <div className="flex justify-center mb-4">{member.icon}</div>
+                <h3 className="text-lg font-semibold mb-1">{member.name}</h3>
+                <p className="text-gray-400 text-sm">{member.role}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
 
       {/* FAQ Section */}
       <section id="faq" className="py-20 px-6">
@@ -268,10 +373,14 @@ export default function Home() {
               <p className="text-xl text-gray-400 mb-8">
                 Join the future of conversational payments
               </p>
-              <button className="px-8 py-4 bg-white text-black rounded-lg font-medium hover:bg-gray-100 transition inline-flex items-center gap-2">
-                <MessageSquare className="w-5 h-5" />
-                Start with WhatsApp
-              </button>
+                <a
+                  href="https://lablab.ai/event/ai-agents-arc-usdc/kel?channelId=1432495900198174840"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-8 py-4 bg-white text-black rounded-lg font-medium hover:bg-gray-100 transition inline-flex items-center gap-2"
+                >
+                  Request a Demo
+                </a>
             </div>
           </div>
         </div>
